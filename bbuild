@@ -8,9 +8,111 @@ set -u              # Attempting to use an undefined variable will print an
                     # error and exit the program.
 
 
-# TODO: set these properly
-recipe_dir=/tmp/doesnt-exist
-cache_dir=/tmp/doesnt-exist
+# Global script information.
+program=${0##*/}
+program_version=0.0.1
+declare -i verbosity=2
+
+# Color definitions (start as 'on').
+NORMAL="\033[1;0m"
+STRONG="\033[1;1m"
+RED="\033[1;31m"
+GREEN="\033[1;32m"
+YELLOW="\033[1;33m"
+BLUE="\033[1;34m"
+MAGENTA="\033[1;35m"
+WHITE="\033[1;37m"
+
+
+######################################################################
+# Enable / disable colors in the program.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   $1 = 'on' or 'off'
+#
+# Returns:
+#   None
+######################################################################
+function set_colors() {
+  case "$1" in
+    on)
+      NORMAL="\033[1;0m"
+      STRONG="\033[1;1m"
+      RED="\033[1;31m"
+      GREEN="\033[1;32m"
+      YELLOW="\033[1;33m"
+      BLUE="\033[1;34m"
+      MAGENTA="\033[1;35m"
+      WHITE="\033[1;37m"
+      ;;
+    off)
+      NORMAL=""
+      STRONG=""
+      RED=""
+      GREEN=""
+      YELLOW=""
+      BLUE=""
+      MAGENTA=""
+      WHITE=""
+      ;;
+  esac
+}
+
+
+######################################################################
+# Various helper log functions.
+#
+# Globals:
+#   $verbosity = verboseness level
+#
+#   Note: verbosity levels
+#       debug   = 1
+#       info    = 2
+#       warning = 3
+#       error   = 4 (always printed)
+#
+# Arguments:
+#   $1 = string
+#
+# Returns:
+#   None
+######################################################################
+function debug() {
+  [[ "$verbosity" -gt 1 ]] && return
+  local prompt="${MAGENTA}==> DEBUG:${NORMAL}"
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+}
+
+function info() {
+  [[ "$verbosity" -gt 2 ]] && return
+  local prompt="${GREEN}==>${NORMAL}"
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+}
+
+function info2() {
+  [[ "$verbosity" -gt 2 ]] && return
+  local prompt="${BLUE}  ->${NORMAL}"
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+}
+
+function warn() {
+  [[ "$verbosity" -gt 3 ]] && return
+  local prompt="${YELLOW}==> WARNING:${NORMAL}"
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+}
+
+function error() {
+  local prompt="${RED}==> ERROR:${NORMAL}"
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+}
+
+function die() {
+  error "$1"
+  exit 1
+}
 
 
 ######################################################################
@@ -166,51 +268,99 @@ function default_fetch() {
 
 
 ######################################################################
-# The main entry point.
+# Prints the usage for this script.
 #
 # Globals:
-#   None
+#   $build_base = the build directory
+#   $recipe_dir = the recipe directory
 #
 # Arguments:
 #   None
 #
 # Returns:
-#   0 on success, 1 on failure
+#   None
 ######################################################################
-function main() {
-  while getopts ":vb:" opt; do
-    case $opt in
-      v)
-        echo "Being verbose"
-        ;;
-      b)
-        echo "Setting build base to: $OPTARG"
-        ;;
-      \?)
-        echo "Invalid option: -$OPTARG" >&2
-        return 1
-        ;;
-      :)
-        echo "Option -$OPTARG requires an argument." >&2
-        return 1
-        ;;
-    esac
-  done
+function usage() {
+  echo "$program $program_version"
+  cat <<EOF
+usage: $program [options] <recipe(s)>
 
-  # Remove all flags, just leaving our arguments.
-  shift $((OPTIND - 1))
-
-  for arg in "$@"; do
-    echo "Building: $arg" >&2
-  done
-
-  return 0
+options:
+  -b DIR    Set the build directory (default: $build_base)
+  -h        Print this help
+  -m        Monochrome - disable colors.
+  -q        Be more quiet
+  -r DIR    Set the recipe directory (default: $recipe_dir)
+  -v        Be more verbose
+EOF
+  exit 0
 }
 
 
-# Only run the main function if we aren't testing.
-if [[ -z "${BBUILD_TESTING:-}" ]]; then
-  main "$@" || exit 1
+# Only proceed further if we aren't testing.
+if [[ -n "${BBUILD_TESTING:-}" ]]; then
+  # Don't exit, but just return.
+  return 0
 fi
+
+# Disable colors if stderr isn't a terminal.
+if [[ ! -t 2 ]]; then
+  set_colors "off"
+fi
+
+# Default values of variables
+build_base=/tmp/build
+recipe_dir=$(pwd)
+
+# Parse arguments
+while getopts ":b:hmqr:v" opt; do
+  case $opt in
+    b)
+      build_base="$OPTARG"
+      ;;
+    h)
+      usage
+      ;;
+    m)
+      set_colors "off"
+      ;;
+    q)
+      verbosity=$(( verbosity + 1 ))
+      ;;
+    r)
+      recipe_dir="$OPTARG"
+      ;;
+    v)
+      verbosity=$(( verbosity - 1 ))
+      ;;
+    \?)
+      error "Invalid option: -$OPTARG"
+      exit 1
+      ;;
+    :)
+      error "Option -$OPTARG requires an argument."
+      exit 1
+      ;;
+  esac
+done
+
+# Remove all flags, just leaving our arguments.
+shift $((OPTIND - 1))
+debug "Flag parsing finished, have $# packages to build"
+
+# Compute derived variables
+declare -r cache_dir="$build_base"/.cache
+
+# Create necessary directories
+for dir in "$build_base" "$cache_dir"; do
+  mkdir -p "$dir" || exit 1
+done
+
+# Actually build
+for arg in "$@"; do
+  info "Building: $arg"
+  info2 "Subargument"
+done
+
 
 # vim: set tabstop=2 shiftwidth=2 textwidth=0 expandtab:
