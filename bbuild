@@ -143,12 +143,14 @@ function url_from_source() {
 function default_fetch() {
     local sources="$1"
     local target_dir="$2"
+    local filename url
 
     for s in $sources; do
-        local filename=$(filename_from_source $s)
+        filename=$(filename_from_source "$s")
 
         if is_remote "$s"; then
-            fetch_url "$s" "$cache_dir"/"$filename" || return 1
+            url=$(url_from_source "$s")
+            fetch_url "$url" "$cache_dir"/"$filename" || return 1
             ln -sf "$cache_dir"/"$filename" "$target_dir"/
         else
             ln -sf "$recipe_dir/$s" "$target_dir"/
