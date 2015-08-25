@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-
 source ./assert.sh
+
+export BBUILD_TESTING=yes
 source ./bbuild
 
 

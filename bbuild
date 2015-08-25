@@ -129,7 +129,6 @@ function url_from_source() {
 }
 
 
-
 ######################################################################
 # Downloads all given sources into the specified target directory.
 # Local file sources are symlinked into the target directory.
@@ -164,3 +163,28 @@ function default_fetch() {
 
     return 0
 }
+
+
+######################################################################
+# The main entry point.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
+function main() {
+    echo "TODO: main"
+
+    return 0
+}
+
+
+# Only run the main function if we aren't testing.
+if [[ -z "${BBUILD_TESTING:-}" ]]; then
+    main || exit 1
+fi
