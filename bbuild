@@ -27,13 +27,13 @@ cache_dir=/tmp/doesnt-exist
 #   0 on success, 1 on failure
 ######################################################################
 function fetch_url() {
-    local url="$1"
-    local target="$2"
+  local url="$1"
+  local target="$2"
 
-    # TODO: options if verbose/not verbose
-    # TODO: fall back to wget if curl not present
-    curl -L -o "$target" "$url" || exit 1
-    return 0
+  # TODO: options if verbose/not verbose
+  # TODO: fall back to wget if curl not present
+  curl -L -o "$target" "$url" || exit 1
+  return 0
 }
 
 
@@ -52,15 +52,15 @@ function fetch_url() {
 #   0/true if the source is remote, 1/false if it is not
 ######################################################################
 function is_remote() {
-    local src="$1"
+  local src="$1"
 
-    case "${src#*::}" in
-        http://*|ftp://*|https://*)
-            return 0
-            ;;
-    esac
+  case "${src#*::}" in
+    http://*|ftp://*|https://*)
+      return 0
+      ;;
+  esac
 
-    return 1
+  return 1
 }
 
 
@@ -82,19 +82,19 @@ function is_remote() {
 #   The filename from the given source
 ######################################################################
 function filename_from_source() {
-    local src="$1"
+  local src="$1"
 
-    # Get everything after the last slash.  Equivalent to $(basename $url).
-    local filename="${src##*/}"
+  # Get everything after the last slash.  Equivalent to $(basename $url).
+  local filename="${src##*/}"
 
-    # If there is a '::' in the source, we take everything before it.
-    case "$src" in
-        *::*) filename=${src%%::*};;
-    esac
+  # If there is a '::' in the source, we take everything before it.
+  case "$src" in
+    *::*) filename=${src%%::*};;
+  esac
 
-    # Output
-    echo "$filename"
-    return 0
+  # Output
+  echo "$filename"
+  return 0
 }
 
 
@@ -115,17 +115,17 @@ function filename_from_source() {
 #   The URL from the given source
 ######################################################################
 function url_from_source() {
-    local src="$1"
-    local url="$src"
+  local src="$1"
+  local url="$src"
 
-    # If there is a '::' in the source, we take everything after it.
-    case "$src" in
-        *::*) url=${src##*::};;
-    esac
+  # If there is a '::' in the source, we take everything after it.
+  case "$src" in
+    *::*) url=${src##*::};;
+  esac
 
-    # Output
-    echo "$url"
-    return 0
+  # Output
+  echo "$url"
+  return 0
 }
 
 
@@ -145,23 +145,23 @@ function url_from_source() {
 #   0 on success, 1 on failure
 ######################################################################
 function default_fetch() {
-    local sources="$1"
-    local target_dir="$2"
-    local filename url
+  local sources="$1"
+  local target_dir="$2"
+  local filename url
 
-    for s in $sources; do
-        filename=$(filename_from_source "$s")
+  for s in $sources; do
+    filename=$(filename_from_source "$s")
 
-        if is_remote "$s"; then
-            url=$(url_from_source "$s")
-            fetch_url "$url" "$cache_dir"/"$filename" || return 1
-            ln -sf "$cache_dir"/"$filename" "$target_dir"/
-        else
-            ln -sf "$recipe_dir/$s" "$target_dir"/
-        fi
-    done
+    if is_remote "$s"; then
+      url=$(url_from_source "$s")
+      fetch_url "$url" "$cache_dir"/"$filename" || return 1
+      ln -sf "$cache_dir"/"$filename" "$target_dir"/
+    else
+      ln -sf "$recipe_dir/$s" "$target_dir"/
+    fi
+  done
 
-    return 0
+  return 0
 }
 
 
@@ -178,30 +178,39 @@ function default_fetch() {
 #   0 on success, 1 on failure
 ######################################################################
 function main() {
-    while getopts "vb:" opt; do
-        case $opt in
-            v)
-                echo "Being verbose"
-                ;;
-            b)
-                echo "Setting build base to: $OPTARG"
-                ;;
-            \?)
-                echo "Invalid option: -$OPTARG" >&2
-                exit 1
-                ;;
-            :)
-                echo "Option -$OPTARG requires an argument." >&2
-                exit 1
-                ;;
-        esac
-    done
+  while getopts ":vb:" opt; do
+    case $opt in
+      v)
+        echo "Being verbose"
+        ;;
+      b)
+        echo "Setting build base to: $OPTARG"
+        ;;
+      \?)
+        echo "Invalid option: -$OPTARG" >&2
+        return 1
+        ;;
+      :)
+        echo "Option -$OPTARG requires an argument." >&2
+        return 1
+        ;;
+    esac
+  done
 
-    return 0
+  # Remove all flags, just leaving our arguments.
+  shift $((OPTIND - 1))
+
+  for arg in "$@"; do
+    echo "Building: $arg" >&2
+  done
+
+  return 0
 }
 
 
 # Only run the main function if we aren't testing.
 if [[ -z "${BBUILD_TESTING:-}" ]]; then
-    main || exit 1
+  main "$@" || exit 1
 fi
+
+# vim: set tabstop=2 shiftwidth=2 textwidth=0 expandtab:
