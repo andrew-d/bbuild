@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+
+source ./assert.sh
+source ./bbuild
+
+
+function test_is_remote() {
+    # Remote URLs
+    assert_raises 'is_remote "http://www.foo.com"' 0
+    assert_raises 'is_remote "https://www.foo.com"' 0
+    assert_raises 'is_remote "ftp://www.foo.com"' 0
+
+    # Non-remote
+    assert_raises 'is_remote "file-foo-bar"' 1
+    assert_raises 'is_remote "/path/with/embedded-url-https://foobar.com"' 1
+
+    assert_end is_remote
+}
+
+
+function test_filename_from_source() {
+    assert 'filename_from_source "http://www.foo.com/file.tar.gz"'           'file.tar.gz'
+    assert 'filename_from_source "http://www.foo.com/bar.tar/baz.foo/mine"'  'mine'
+    assert 'filename_from_source "override.tar.gz::http://foo.com/file.zip"' 'override.tar.gz'
+
+    assert_end filename_from_source
+}
+
+
+function test_url_from_source() {
+    assert 'url_from_source "http://www.foo.com/file.tar.gz"' \
+        'http://www.foo.com/file.tar.gz'
+
+    assert 'url_from_source "http://www.foo.com/bar.tar/baz.foo/mine"' \
+        'http://www.foo.com/bar.tar/baz.foo/mine'
+
+    assert 'url_from_source "override.tar.gz::http://foo.com/file.zip"' \
+        'http://foo.com/file.zip'
+
+    assert_end url_from_source
+}
+
+
+function run_tests() {
+    test_is_remote
+    test_filename_from_source
+    test_url_from_source
+}
+
+
+run_tests

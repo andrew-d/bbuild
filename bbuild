@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+
+
+set -e              # Abort when a command exists with a non-zero exit status
+set -o pipefail     # Cause a pipeline to return the exit status of the last
+                    # command that returned a non-zero return value.
+set -u              # Attempting to use an undefined variable will print an
+                    # error and exit the program.
+
+
+######################################################################
+# Fetches a given URL and saves it as the given file.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   $1 = url
+#   $2 = target file
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
+function fetch_url() {
+    local url="$1"
+    local target="$2"
+
+    # TODO: options if verbose/not verbose
+    # TODO: fall back to wget if curl not present
+    curl -L -o "$target" "$url" || exit 1
+    return 0
+}
+
+
+######################################################################
+# Detects whether a given source is remote (i.e. whether the source
+# is on the local filesystem or should be fetched from a remote
+# location).
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   $1 = source specification
+#
+# Returns:
+#   0/true if the source is remote, 1/false if it is not
+######################################################################
+function is_remote() {
+    local src="$1"
+
+    case "${src#*::}" in
+        http://*|ftp://*|https://*)
+            return 0
+            ;;
+    esac
+
+    return 1
+}
+
+
+######################################################################
+# Gets the filename from a given source  If the source is prefixed
+# with a 'filename::<url>', the 'filename' portion will be used
+# instead of anything from the URL.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   $1 = source
+#
+# Returns:
+#   0 always
+#
+# Stdout:
+#   The filename from the given source
+######################################################################
+function filename_from_source() {
+    local src="$1"
+
+    # Get everything after the last slash.  Equivalent to $(basename $url).
+    local filename="${src##*/}"
+
+    # If there is a '::' in the source, we take everything before it.
+    case "$src" in
+        *::*) filename=${src%%::*};;
+    esac
+
+    # Output
+    echo "$filename"
+    return 0
+}
+
+
+######################################################################
+# Gets the URL from a given source  If the source is prefixed with a
+# 'filename::<url>', the 'filename' portion will be stripped.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   $1 = source
+#
+# Returns:
+#   0 always
+#
+# Stdout:
+#   The URL from the given source
+######################################################################
+function url_from_source() {
+    local src="$1"
+    local url="$src"
+
+    # If there is a '::' in the source, we take everything after it.
+    case "$src" in
+        *::*) url=${src##*::};;
+    esac
+
+    # Output
+    echo "$url"
+    return 0
+}
+
+
+
+######################################################################
+# Downloads all given sources into the specified target directory.
+# Local file sources are symlinked into the target directory.
+#
+# Globals:
+#   $recipe_dir = the recipe directory
+#   $cache_dir  = the cache directory for downloaded sources
+#
+# Arguments:
+#   $1 = sources
+#   $2 = target directory
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
+function default_fetch() {
+    local sources="$1"
+    local target_dir="$2"
+
+    for s in $sources; do
+        local filename=$(filename_from_source $s)
+
+        if is_remote "$s"; then
+            fetch_url "$s" "$cache_dir"/"$filename" || return 1
+            ln -sf "$cache_dir"/"$filename" "$target_dir"/
+        else
+            ln -sf "$recipe_dir/$s" "$target_dir"/
+        fi
+    done
+
+    return 0
+}
