@@ -8,6 +8,11 @@ set -u              # Attempting to use an undefined variable will print an
                     # error and exit the program.
 
 
+# TODO: set these properly
+recipe_dir=/tmp/doesnt-exist
+cache_dir=/tmp/doesnt-exist
+
+
 ######################################################################
 # Fetches a given URL and saves it as the given file.
 #
