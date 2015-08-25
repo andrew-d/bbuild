@@ -178,7 +178,24 @@ function default_fetch() {
 #   0 on success, 1 on failure
 ######################################################################
 function main() {
-    echo "TODO: main"
+    while getopts "vb:" opt; do
+        case $opt in
+            v)
+                echo "Being verbose"
+                ;;
+            b)
+                echo "Setting build base to: $OPTARG"
+                ;;
+            \?)
+                echo "Invalid option: -$OPTARG" >&2
+                exit 1
+                ;;
+            :)
+                echo "Option -$OPTARG requires an argument." >&2
+                exit 1
+                ;;
+        esac
+    done
 
     return 0
 }
