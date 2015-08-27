@@ -8,6 +8,26 @@ set -u              # Attempting to use an undefined variable will print an
                     # error and exit the program.
 
 
+######################################################################
+# Global Variables
+#
+# This list contains a description of all global variables and what
+# they mean.
+#
+#   +-----------------+---------------------------------------------+
+#   |      NAME       | DESCRIPTION                                 |
+#   +-----------------+---------------------------------------------+
+#   | program         | The name of this script                     |
+#   | program_version | The version of this script                  |
+#   | base_dir        | Base directory for performing the build in  |
+#   | cache_dir       | Directory used for storing cache of sources |
+#   | recipe_dir      | Directory that contains our recipes         |
+#   | source_dir      | Per-recipe directory that contains sources  |
+#   +-----------------+---------------------------------------------+
+#
+######################################################################
+
+
 # Global script information.
 program=${0##*/}
 program_version=0.0.1
@@ -240,26 +260,36 @@ function url_from_source() {
 #   $cache_dir  = the cache directory for downloaded sources
 #
 # Arguments:
-#   $1 = sources
-#   $2 = target directory
+#   $1 = target directory
+#   $2 .. = sources
 #
 # Returns:
 #   0 on success, 1 on failure
 ######################################################################
 function default_fetch() {
-  local sources="$1"
-  local target_dir="$2"
+  local target_dir="$1"
+  shift
+
+  declare -ar sources=("${@}")
   local filename url
 
-  for s in $sources; do
+  debug "Have ${#sources[@]} source(s) to fetch"
+
+  # Avoid an 'unbound variable' array when a recipe has no sources.
+  if [[ ${#sources[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  for s in "${sources[@]}"; do
+    info "Fetching source: $s"
     filename=$(filename_from_source "$s")
 
     if is_remote "$s"; then
       url=$(url_from_source "$s")
       fetch_url "$url" "$cache_dir"/"$filename" || return 1
-      ln -sf "$cache_dir"/"$filename" "$target_dir"/
+      ln -sf "$cache_dir"/"$filename" "$target_dir"/ || return 1
     else
-      ln -sf "$recipe_dir/$s" "$target_dir"/
+      ln -sf "$recipe_dir/$s" "$target_dir"/ || return 1
     fi
   done
 
@@ -268,10 +298,231 @@ function default_fetch() {
 
 
 ######################################################################
+# Default 'fetch' implementation that simply takes the global, recipe-
+# defined 'sources' variable and passes it to default_fetch.
+#
+# Globals:
+#   $source_dir = the cache directory for downloaded sources
+#   $sources    = defined sources array
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
+function fetch() {
+  mkdir -p "$source_dir"
+  default_fetch "$source_dir" "${sources[@]}"
+}
+
+
+# TODO: document
+function default_unpack() {
+  mkdir -p "$source_dir"
+
+  info "Unpacking..."
+  for u in $sources; do
+    local fname dst
+    fname=$(filename_from_source "$u")
+    dst="$source_dir"/"$fname"
+
+    case "$dst" in
+      *.tar)
+        info2 "Unpacking $fname..."
+        tar -C "$source_dir" -xf "$dst" || return 1
+        ;;
+      *.tar.gz|*.tgz)
+        info2 "Unpacking $fname..."
+        tar -C "$source_dir" -zxf "$dst" || return 1
+        ;;
+      *.tar.bz2)
+        info2 "Unpacking $fname..."
+        tar -C "$source_dir" -jxf "$dst" || return 1
+        ;;
+      *.tar.lzma)
+        info2 "Unpacking $fname..."
+        unlzma -c "$dst" | tar -C "$source_dir" -x || return 1
+        ;;
+      *.tar.xz)
+        info2 "Unpacking $fname..."
+        unxz -c "$dst" | tar -C "$source_dir" -x || return 1
+        ;;
+      *.zip)
+        info2 "Unpacking $fname..."
+        unzip "$dst" -d "$source_dir" || return 1
+        ;;
+    esac
+  done
+
+  return 0
+}
+
+
+function unpack() {
+  default_unpack || return 1
+
+  return 0
+}
+
+
+######################################################################
+# Starts the builds for the given recipe.
+#
+# Globals:
+#   $base_dir   = the build directory
+#   $recipe_dir = the recipe directory
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   None
+######################################################################
+function run_build() {
+  local recipe_name="$1"
+
+  local recipe_path="$recipe_dir"/"$recipe_name"
+  if [[ ! -d "$recipe_path" ]]; then
+    error "Recipe '$recipe_name' does not exist!"
+    return 1
+  fi
+  if [[ ! -s "${recipe_path}/build.sh" ]]; then
+    error "Recipe '$recipe_name' exists, but 'build.sh' is missing!"
+    return 1
+  fi
+
+  # Make the source directory.
+  local srcdir="$base_dir"/"$recipe_name"
+  mkdir -p "$srcdir"
+
+  # Run the remaining commands in a subshell.
+  (
+    # Set up variables.
+    source_dir="$srcdir"
+    setup_build_environment
+
+    # Load the build script.
+    debug "Recipe path = ${recipe_path}"
+    source "$recipe_path/build.sh"
+
+    # Build all dependencies.
+    if [[ ${dependencies:-} ]]; then
+      for dep in ${dependencies[@]}; do
+        echo "Would build dependency $dep"
+      done
+    fi
+
+    # Run everything in order.
+    fetch || exit 1
+    unpack || exit 1
+
+    info "Starting prepare()"
+    prepare || exit 1
+
+    info "Starting build()"
+    build || exit 1
+
+    if [[ "${binary:-}" == "true" ]]; then
+      package || exit 1
+    fi
+    if [[ "${library:-}" == "true" ]]; then
+      setup_env || exit 1
+    fi
+
+    info "Finished building: $recipe_name"
+    exit 0
+  )
+
+  return $?
+}
+
+
+# TODO: document
+function prepare() {
+  # Do nothing by default
+  debug "No prepare() function specified"
+}
+
+
+# TODO: document
+function package() {
+  warn "package() was called but not overridden"
+}
+
+
+# TODO: document
+function setup_env() {
+  warn "setup_env() was called but not overridden"
+
+  # TODO: each dependency should create a file under
+  # "$config_dir"/"$pkgname"/ENVIRONMENT_VAR that contains the value of that
+  # flag that is required to compile using that dependency.
+}
+
+
+function setup_build_environment() {
+  BBUILD_HOST_PLATFORM=$(uname | tr 'A-Z' 'a-z')
+  BBUILD_HOST_ARCH=$(uname -m | tr 'A-Z' 'a-z')
+
+  # TODO: figure me out properly from command line
+  BBUILD_TARGET_PLATFORM=linux
+  BBUILD_TARGET_ARCH=x86_64
+
+  case "${BBUILD_TARGET_PLATFORM}-${BBUILD_TARGET_ARCH}" in
+    linux-x86_64)
+      BBUILD_CROSS_PREFIX=x86_64-linux-musl
+      ;;
+    linux-arm)
+      BBUILD_CROSS_PREFIX=arm-linux-musleabihf
+      ;;
+    android-*)
+      BBUILD_CROSS_PREFIX=arm-linux-musleabihf
+      ;;
+    darwin-x86_64)
+      BBUILD_CROSS_PREFIX=x86_64-apple-darwin12
+      ;;
+    *)
+      error "Cannot determine cross prefix for ${BBUILD_TARGET_PLATFORM}/${BBUILD_TARGET_ARCH}"
+      return 1
+  esac
+
+  # Make everything readonly
+  readonly BBUILD_HOST_PLATFORM BBUILD_HOST_ARCH
+  readonly BBUILD_TARGET_PLATFORM BBUILD_TARGET_ARCH
+  readonly BBUILD_CROSS_PREFIX
+
+  # Set up build tools with prefixes
+  AR="${BBUILD_CROSS_PREFIX}-ar"
+  CC="${BBUILD_CROSS_PREFIX}-gcc"
+  CXX="${BBUILD_CROSS_PREFIX}-g++"
+  LD="${BBUILD_CROSS_PREFIX}-ld"
+  RANLIB="${BBUILD_CROSS_PREFIX}-ranlib"
+  STRIP="${BBUILD_CROSS_PREFIX}-strip"
+
+  # Declare static flags
+  BBUILD_STATIC_FLAGS=" -static "
+  case "${BBUILD_TARGET_PLATFORM}-${BBUILD_TARGET_ARCH}" in
+    darwin-*)
+      BBUILD_STATIC_FLAGS=" -flto -O3 -mmacosx-version-min=10.6 "
+      ;;
+  esac
+  readonly BBUILD_STATIC_FLAGS
+
+  # Special-case for cross-compiling to darwin.
+  if [[ "$BBUILD_TARGET_PLATFORM" = "darwin" ]]; then
+    CC="${BBUILD_CROSS_PREFIX}-clang"
+    CXX="${BBUILD_CROSS_PREFIX}-clang++"
+    declare -xr OSXCROSS_NO_INCLUDE_PATH_WARNINGS=1
+  fi
+}
+
+
+######################################################################
 # Prints the usage for this script.
 #
 # Globals:
-#   $build_base = the build directory
+#   $base_dir   = the build directory
 #   $recipe_dir = the recipe directory
 #
 # Arguments:
@@ -286,7 +537,7 @@ function usage() {
 usage: $program [options] <recipe(s)>
 
 options:
-  -b DIR    Set the build directory (default: $build_base)
+  -b DIR    Set the build directory (default: $base_dir)
   -h        Print this help
   -m        Monochrome - disable colors.
   -q        Be more quiet
@@ -308,15 +559,22 @@ if [[ ! -t 2 ]]; then
   set_colors "off"
 fi
 
+# If our 'special' environment variable is set, it's an indicator that we
+# should start the build for the given recipe.
+if [[ -n "${BBUILD_BUILD_RECIPE:-}" ]]; then
+  start_build "$1"
+  exit $?
+fi
+
 # Default values of variables
-build_base=/tmp/build
-recipe_dir=$(pwd)
+base_dir=$(pwd)/build
+recipe_dir=$(pwd)/recipes
 
 # Parse arguments
 while getopts ":b:hmqr:v" opt; do
   case $opt in
     b)
-      build_base="$OPTARG"
+      base_dir="$OPTARG"
       ;;
     h)
       usage
@@ -348,18 +606,27 @@ done
 shift $((OPTIND - 1))
 debug "Flag parsing finished, have $# packages to build"
 
-# Compute derived variables
-declare -r cache_dir="$build_base"/.cache
+# Mark variables as read-only, and compute derived variables
+readonly base_dir recipe_dir verbosity
+declare -r cache_dir="$base_dir"/.cache
+
+# SIGINT handling - print a nice message
+trap 'die "Aborted by user"' INT
 
 # Create necessary directories
-for dir in "$build_base" "$cache_dir"; do
+for dir in "$base_dir" "$cache_dir"; do
   mkdir -p "$dir" || exit 1
 done
 
 # Actually build
 for arg in "$@"; do
   info "Building: $arg"
-  info2 "Subargument"
+
+  run_build "$arg"
+  if [[ ! $? ]]; then
+    debug "Recipe failed - exiting..."
+    break
+  fi
 done
 
 
