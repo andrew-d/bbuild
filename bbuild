@@ -35,6 +35,7 @@ set -u              # Attempting to use an undefined variable will print an
 # |                        | specifications for library recipes          |
 # | bb_out_dir             | Output directory for final build products   |
 # | bb_recipes_dir         | Directory that contains all recipes         |
+# | bb_rebuild             | Should we rebuild dependencies              |
 # +------------------------+---------------------------------------------+
 # | BBUILD_SOURCE_DIR      | Per-recipe directory that contains sources  |
 # | BBUILD_CROSS_PREFIX    | Cross-compilation prefix                    |
@@ -467,6 +468,74 @@ function unpack() {
 
 
 ######################################################################
+# Helper function that sources the environment variables for all of
+# the dependencies.
+# MUST BE RUN WITHIN THE RECIPE CONTEXT.
+#
+# Globals:
+#   $dependencies   = dependencies of this recipe
+#   $bb_depconf_dir = depconf directory
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
+function _load_dependency_vars() {
+  if [[ ${dependencies:-} ]]; then
+    # Source all dependency environment variables.
+    for dep in "${dependencies[@]}"; do
+      local env_vars var_file
+      env_vars=$(find "$bb_depconf_dir"/"$dep" -type f -print0 | xargs -0 -n1 basename)
+
+      for var in $env_vars; do
+        var_file="$bb_depconf_dir"/"$dep"/"$var"
+
+        # The ${!var} syntax says 'read the environment variable with the
+        # name that is the content of the var variable'.  This line should
+        # set $var to the value of $var plus the variables from the file.
+        export $var="${!var:-} $(cat "$var_file")"
+      done
+    done
+  fi
+
+  return 0
+}
+
+
+######################################################################
+# Helper function that builds all dependencies.
+# MUST BE RUN WITHIN THE RECIPE CONTEXT.
+#
+# Globals:
+#   $dependencies   = dependencies of this recipe
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
+function _build_dependencies() {
+  if [[ ${dependencies:-} ]]; then
+    # Build all dependencies.
+    for dep in "${dependencies[@]}"; do
+      info "Building dependency: $dep"
+      run_self "$dep" || return 1
+
+      echo '' >&2
+    done
+
+    # Source all dependency environment variables.
+    _load_dependency_vars || return 1
+  fi
+
+  return 0
+}
+
+
+######################################################################
 # Starts the builds for the given recipe.
 #
 # Globals:
@@ -492,11 +561,25 @@ function run_build() {
     return 1
   fi
 
-  # Make the various per-recipe directories.
+  # If we are not rebuilding, we check if this depconf directory exists.  If it
+  # does, then we know that this build has already been run, and thus we can
+  # skip everything.
   local srcdir="$bb_base_dir"/"$recipe_name"
-  mkdir -p "$srcdir" || return 1
-
   local depdir="$bb_depconf_dir"/"$recipe_name"
+  # TODO: proper logic for rebuilding!
+  #if [[ -d "$depdir" ]]; then
+  #  # Exists.  We're done!
+  #  info "Not rebuilding recipe: $recipe_name"
+  #  return 0
+  #fi
+  #
+  ## We're rebuilding, so we need to blow away the source and dep directories
+  ## and then remake them.
+  #debug "Cleaning source and dep dirs: $srcdir $depdir"
+  #rm -rf "$srcdir"
+  #rm -rf "$depdir"
+
+  mkdir -p "$srcdir" || return 1
   mkdir -p "$depdir" || return 1
 
   # Run the remaining commands in a subshell, so we don't pollute the main
@@ -510,30 +593,8 @@ function run_build() {
     debug "Recipe path = ${this_recipe_dir}"
     source "$this_recipe_dir/build.sh"
 
-    if [[ ${dependencies:-} ]]; then
-      # Build all dependencies.
-      for dep in "${dependencies[@]}"; do
-        info "Building dependency: $dep"
-        run_self "$dep"
-
-        echo '' >&2
-      done
-
-      # Source all dependency environment variables.
-      for dep in "${dependencies[@]}"; do
-        local env_vars var_file
-        env_vars=$(find "$bb_depconf_dir"/"$dep" -type f -print0 | xargs -0 -n1 basename)
-
-        for var in $env_vars; do
-          var_file="$bb_depconf_dir"/"$dep"/"$var"
-
-          # The ${!var} syntax says 'read the environment variable with the
-          # name that is the content of the var variable'.  This line should
-          # set $var to the value of $var plus the variables from the file.
-          export $var="${!var:-} $(cat "$var_file")"
-        done
-      done
-    fi
+    # Build dependencies
+    _build_dependencies || exit 1
 
     # Run everything in order.
     fetch || exit 1
@@ -761,6 +822,7 @@ usage: $bb_program [options] <recipe(s)>
 options:
   -b DIR    Set the build directory (default: $bb_base_dir)
   -h        Print this help
+  -k        Don't rebuild dependencies
   -m        Monochrome - disable colors.
   -o DIR    Set the output directory (default: $bb_out_dir)
   -q        Be more quiet
@@ -793,15 +855,19 @@ fi
 bb_base_dir=$(pwd)/build
 bb_recipes_dir=$(pwd)/recipes
 bb_out_dir=$(pwd)/out
+bb_rebuild=yes
 
 # Parse arguments
-while getopts ":b:hmo:qr:v" opt; do
+while getopts ":b:hkmo:qr:v" opt; do
   case $opt in
     b)
       bb_base_dir="$OPTARG"
       ;;
     h)
       usage
+      ;;
+    k)
+      bb_rebuild=no
       ;;
     m)
       set_colors "off"
@@ -833,18 +899,19 @@ done
 shift $((OPTIND - 1))
 
 # Mark variables as read-only, and compute derived variables
-readonly bb_base_dir bb_recipes_dir bb_verbosity
+readonly bb_base_dir bb_rebuild bb_recipes_dir bb_verbosity
 declare -r bb_cache_dir="$bb_base_dir"/.cache
 declare -r bb_depconf_dir="$bb_base_dir"/.depconf
 
 # Help!
 debug "Flag parsing finished, have $# packages to build"
 debug "    bb_base_dir    = ${bb_base_dir}"
-debug "    bb_recipes_dir = ${bb_recipes_dir}"
-debug "    bb_verbosity   = ${bb_verbosity}"
 debug "    bb_cache_dir   = ${bb_cache_dir}"
 debug "    bb_depconf_dir = ${bb_depconf_dir}"
 debug "    bb_out_dir     = ${bb_out_dir}"
+debug "    bb_rebuild     = ${bb_rebuild}"
+debug "    bb_recipes_dir = ${bb_recipes_dir}"
+debug "    bb_verbosity   = ${bb_verbosity}"
 
 # SIGINT handling - print a nice message
 trap 'die "Aborted by user"' INT

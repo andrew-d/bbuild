@@ -25,12 +25,12 @@ function build() {
 
     CC="${CC} ${BBUILD_STATIC_FLAGS}" \
     CFLAGS="-fPIC ${BBUILD_STATIC_FLAGS}" \
-    LZMA_LIBS="$(cat "$depconf_dir"/lzma/LDFLAGS)" \
-    LZMA_CFLAGS="$(cat "$depconf_dir"/lzma/CPPFLAGS)" \
-    PCRE_LIBS="$(cat "$depconf_dir"/pcre/LDFLAGS)" \
-    PCRE_CFLAGS="$(cat "$depconf_dir"/pcre/CPPFLAGS)" \
-    ZLIB_LIBS="$(cat "$depconf_dir"/zlib/LDFLAGS)" \
-    ZLIB_CFLAGS="$(cat "$depconf_dir"/zlib/CPPFLAGS)" \
+    LZMA_LIBS="$(cat "$bb_depconf_dir"/lzma/LDFLAGS)" \
+    LZMA_CFLAGS="$(cat "$bb_depconf_dir"/lzma/CPPFLAGS)" \
+    PCRE_LIBS="$(cat "$bb_depconf_dir"/pcre/LDFLAGS)" \
+    PCRE_CFLAGS="$(cat "$bb_depconf_dir"/pcre/CPPFLAGS)" \
+    ZLIB_LIBS="$(cat "$bb_depconf_dir"/zlib/LDFLAGS)" \
+    ZLIB_CFLAGS="$(cat "$bb_depconf_dir"/zlib/CPPFLAGS)" \
     ./configure \
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
