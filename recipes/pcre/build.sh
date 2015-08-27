@@ -15,7 +15,7 @@ binary=false
 dependencies=()
 
 # Common variables.
-_builddir="$source_dir/$pkgname-$pkgver"
+_builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
 
 
 function build() {

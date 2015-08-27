@@ -9,34 +9,51 @@ set -u              # Attempting to use an undefined variable will print an
 
 
 ######################################################################
+# Variable Names
+#
+# The naming conventions of variables in this script is fairly simple:
+# script-global variables should be prefixed with `bb_` and be all
+# lower-case, and global exported variables should be prefixed with
+# `BBUILD_` and be all upper-case.  Function local variables can have
+# any prefix or name, but should be all lower-case.
+#
+#
 # Global Variables
 #
 # This list contains a description of all global variables and what
 # they mean.
 #
-#   +-----------------+---------------------------------------------+
-#   |      NAME       | DESCRIPTION                                 |
-#   +-----------------+---------------------------------------------+
-#   | program         | The name of this script                     |
-#   | program_path    | The full path of this script                |
-#   | program_version | The version of this script                  |
-#   | base_dir        | Base directory for performing the build in  |
-#   | cache_dir       | Directory used for storing cache of sources |
-#   | depconf_dir     | Directory that stores environment variable  |
-#   |                 | specifications for library recipes          |
-#   | out_dir         | Output directory for final build products   |
-#   | recipes_dir     | Directory that contains all recipes         |
-#   | source_dir      | Per-recipe directory that contains sources  |
-#   +-----------------+---------------------------------------------+
+# +------------------------+---------------------------------------------+
+# |          NAME          | DESCRIPTION                                 |
+# +------------------------+---------------------------------------------+
+# | bb_program             | The name of this script                     |
+# | bb_program_path        | The full path of this script                |
+# | bb_program_version     | The version of this script                  |
+# | bb_base_dir            | Base directory for performing the build in  |
+# | bb_cache_dir           | Directory used for storing cache of sources |
+# | bb_depconf_dir         | Directory that stores environment variable  |
+# |                        | specifications for library recipes          |
+# | bb_out_dir             | Output directory for final build products   |
+# | bb_recipes_dir         | Directory that contains all recipes         |
+# +------------------------+---------------------------------------------+
+# | BBUILD_SOURCE_DIR      | Per-recipe directory that contains sources  |
+# | BBUILD_CROSS_PREFIX    | Cross-compilation prefix                    |
+# | BBUILD_TARGET_PLATFORM | Target platform for this build              |
+# | BBUILD_TARGET_ARCH     | Target architecture for this build          |
+# | BBUILD_HOST_PLATFORM   | Host platform                               |
+# | BBUILD_HOST_ARCH       | Host architecture                           |
+# | BBUILD_STATIC_FLAGS    | Flag(s) that can be passed to a C or C++    |
+# |                        | compiler in order to compile statically     |
+# +------------------------+---------------------------------------------+
 #
 ######################################################################
 
 
 # Global script information.
-program=${0##*/}
-program_path="$0"
-program_version=0.0.1
-declare -i verbosity=2
+bb_program=${0##*/}
+bb_program_path="$0"
+bb_program_version=0.0.1
+declare -i bb_verbosity=2
 
 # Color definitions (start as 'on').
 NORMAL="\033[1;0m"
@@ -91,9 +108,9 @@ function set_colors() {
 # Various helper log functions.
 #
 # Globals:
-#   $verbosity = verboseness level
+#   $bb_verbosity = verboseness level
 #
-#   Note: verbosity levels
+#   Note: bb_verbosity levels
 #       debug   = 1
 #       info    = 2
 #       warning = 3
@@ -106,25 +123,25 @@ function set_colors() {
 #   None
 ######################################################################
 function debug() {
-  [[ "$verbosity" -gt 1 ]] && return
+  [[ "$bb_verbosity" -gt 1 ]] && return
   local prompt="${MAGENTA}==> DEBUG:${NORMAL}"
   printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
 }
 
 function info() {
-  [[ "$verbosity" -gt 2 ]] && return
+  [[ "$bb_verbosity" -gt 2 ]] && return
   local prompt="${GREEN}==>${NORMAL}"
   printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
 }
 
 function info2() {
-  [[ "$verbosity" -gt 2 ]] && return
+  [[ "$bb_verbosity" -gt 2 ]] && return
   local prompt="${BLUE}  ->${NORMAL}"
   printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
 }
 
 function warn() {
-  [[ "$verbosity" -gt 3 ]] && return
+  [[ "$bb_verbosity" -gt 3 ]] && return
   local prompt="${YELLOW}==> WARNING:${NORMAL}"
   printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
 }
@@ -261,7 +278,7 @@ function url_from_source() {
 # Local file sources are symlinked into the target directory.
 #
 # Globals:
-#   $cache_dir  = the cache directory for downloaded sources
+#   $bb_cache_dir  = the cache directory for downloaded sources
 #
 # Arguments:
 #   $1 = target directory
@@ -299,8 +316,8 @@ function default_fetch() {
 
       if is_remote "$src"; then
         url=$(url_from_source "$src")
-        fetch_url "$url" "$cache_dir"/"$filename" || return 1
-        ln -sf "$cache_dir"/"$filename" "$target_dir"/ || return 1
+        fetch_url "$url" "$bb_cache_dir"/"$filename" || return 1
+        ln -sf "$bb_cache_dir"/"$filename" "$target_dir"/ || return 1
       else
         ln -sf "$recipe_dir/$src" "$target_dir"/ || return 1
       fi
@@ -318,8 +335,8 @@ function default_fetch() {
       rm "$filepath"
 
       if is_remote "$src"; then
-        info2 "Deleting: $cache_dir/$filename"
-        rm "$cache_dir"/"$filename"
+        info2 "Deleting: $bb_cache_dir/$filename"
+        rm "$bb_cache_dir"/"$filename"
       fi
 
       return 1
@@ -335,10 +352,10 @@ function default_fetch() {
 # defined 'sources' variable and passes it to default_fetch.
 #
 # Globals:
-#   $recipes_dir = the recipes directory
-#   $source_dir  = the cache directory for downloaded sources
-#   $pkgname     = defined package name
-#   $sources     = defined sources array
+#   $bb_recipes_dir    = the recipes directory
+#   $BBUILD_SOURCE_DIR = the cache directory for downloaded sources
+#   $pkgname           = defined package name
+#   $sources           = defined sources array
 #
 # Arguments:
 #   None
@@ -347,12 +364,12 @@ function default_fetch() {
 #   0 on success, 1 on failure
 ######################################################################
 function fetch() {
-  mkdir -p "$source_dir"
+  mkdir -p "$BBUILD_SOURCE_DIR"
 
   # fetch <into> <recipe source directory> <source 1> <source 2>...
   default_fetch \
-    "$source_dir" \
-    "$recipes_dir"/"$pkgname" \
+    "$BBUILD_SOURCE_DIR" \
+    "$bb_recipes_dir"/"$pkgname" \
     "${sources[@]}" \
     || return 1
 
@@ -433,8 +450,8 @@ function default_unpack() {
 # recipe-defined 'sources' variable and passes it to default_unpack.
 #
 # Globals:
-#   $source_dir = the cache directory for downloaded sources
-#   $sources    = defined sources array
+#   $BBUILD_SOURCE_DIR = the cache directory for downloaded sources
+#   $sources           = defined sources array
 #
 # Arguments:
 #   None
@@ -443,7 +460,7 @@ function default_unpack() {
 #   0 on success, 1 on failure
 ######################################################################
 function unpack() {
-  default_unpack "$source_dir" "${sources[@]}" || return 1
+  default_unpack "$BBUILD_SOURCE_DIR" "${sources[@]}" || return 1
 
   return 0
 }
@@ -453,8 +470,8 @@ function unpack() {
 # Starts the builds for the given recipe.
 #
 # Globals:
-#   $base_dir    = the build directory
-#   $recipes_dir = the recipes directory
+#   $bb_base_dir    = the build directory
+#   $bb_recipes_dir = the recipes directory
 #
 # Arguments:
 #   $1 = recipe name to build
@@ -465,7 +482,7 @@ function unpack() {
 function run_build() {
   local recipe_name="$1"
 
-  local this_recipe_dir="$recipes_dir"/"$recipe_name"
+  local this_recipe_dir="$bb_recipes_dir"/"$recipe_name"
   if [[ ! -d "$this_recipe_dir" ]]; then
     error "Recipe '$recipe_name' does not exist!"
     return 1
@@ -476,17 +493,17 @@ function run_build() {
   fi
 
   # Make the various per-recipe directories.
-  local srcdir="$base_dir"/"$recipe_name"
+  local srcdir="$bb_base_dir"/"$recipe_name"
   mkdir -p "$srcdir" || return 1
 
-  local depdir="$depconf_dir"/"$recipe_name"
+  local depdir="$bb_depconf_dir"/"$recipe_name"
   mkdir -p "$depdir" || return 1
 
   # Run the remaining commands in a subshell, so we don't pollute the main
   # environment with the source'd variables.
   (
     # Set up variables.
-    source_dir="$srcdir"
+    BBUILD_SOURCE_DIR="$srcdir"
     setup_build_environment || exit 1
 
     # Load the build script.
@@ -505,10 +522,10 @@ function run_build() {
       # Source all dependency environment variables.
       for dep in "${dependencies[@]}"; do
         local env_vars var_file
-        env_vars=$(find "$depconf_dir"/"$dep" -type f | xargs -n1 basename)
+        env_vars=$(find "$bb_depconf_dir"/"$dep" -type f -print0 | xargs -0 -n1 basename)
 
         for var in $env_vars; do
-          var_file="$depconf_dir"/"$dep"/"$var"
+          var_file="$bb_depconf_dir"/"$dep"/"$var"
 
           # The ${!var} syntax says 'read the environment variable with the
           # name that is the content of the var variable'.  This line should
@@ -531,15 +548,16 @@ function run_build() {
     if [[ "${binary:-}" == "true" ]]; then
       # Each package should copy files to the output directory.  Need to make
       # this here, since it depends on the version.
-      declare -xr outdir="$out_dir"/"$recipe_name"/"$pkgver"
-      mkdir -p "$outdir" || return 1
+      declare -xr BBUILD_OUT_DIR="$bb_out_dir"/"$recipe_name"/"$pkgver"
+      mkdir -p "$BBUILD_OUT_DIR" || return 1
 
       package || exit 1
     fi
 
     if [[ "${library:-}" == "true" ]]; then
-      # Each package should create a environment variable files under $depdir
-      declare -xr depdir="$depdir"
+      # Each package should create a environment variable files under
+      # $BBUILD_DEP_DIR
+      declare -xr BBUILD_DEP_DIR="$depdir"
       setup_env || exit 1
     fi
 
@@ -551,29 +569,73 @@ function run_build() {
 }
 
 
-# TODO: document
+######################################################################
+# Default do-nothing implementation of prepare()
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   None
+######################################################################
 function prepare() {
   # Do nothing by default
   debug "No prepare() function specified"
 }
 
 
-# TODO: document
+######################################################################
+# Default do-nothing implementation of package().  Prints a warning.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   None
+######################################################################
 function package() {
   warn "package() was called but not overridden"
 }
 
 
-# TODO: document
+######################################################################
+# Default do-nothing implementation of setup_env().  Prints a warning.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   None
+######################################################################
 function setup_env() {
   warn "setup_env() was called but not overridden"
-
-  # TODO: each dependency should create a file under
-  # "$config_dir"/"$pkgname"/ENVIRONMENT_VAR that contains the value of that
-  # flag that is required to compile using that dependency.
 }
 
 
+######################################################################
+# Sets up the global build environment by exporting the standard
+# toolchain variables (CC, CXX, LD, etc.), along with setting the
+# BBUILD_CROSS_PREFIX and BBUILD_STATIC_FLAGS variables that recipes
+# can use.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
 function setup_build_environment() {
   BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
   BBUILD_HOST_ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
@@ -631,17 +693,31 @@ function setup_build_environment() {
 }
 
 
-# TODO: document
+######################################################################
+# Runs ourself with the same command-line options that we were given.
+#
+# Globals:
+#   $bb_base_dir    = the build directory
+#   $bb_recipes_dir = the recipe directory
+#   $bb_out_dir     = the output directory
+#   $bb_verbosity   = verboseness level
+#
+# Arguments:
+#   $@  = arguments to pass to ourself
+#
+# Returns:
+#   Exit status of the run process
+######################################################################
 function run_self() {
-  local args extra_args
+  local args
 
-  args="-b ${base_dir} -r ${recipes_dir} -o ${out_dir}"
+  args="-b ${bb_base_dir} -r ${bb_recipes_dir} -o ${bb_out_dir}"
 
   if [[ -z "$RED" ]]; then
     args="$args -m"
   fi
 
-  case $verbosity in
+  case $bb_verbosity in
     0)
       args="$args -v"
       ;;
@@ -656,10 +732,8 @@ function run_self() {
       ;;
   esac
 
-  extra_args="$@"
-
-  debug "Running self with: ${program_path} ${args} ${extra_args}"
-  ${program_path} ${args} ${extra_args}
+  debug "Running self with: ${bb_program_path} ${args} $*"
+  ${bb_program_path} ${args} $@
   return $?
 }
 
@@ -668,8 +742,10 @@ function run_self() {
 # Prints the usage for this script.
 #
 # Globals:
-#   $base_dir   = the build directory
-#   $recipes_dir = the recipe directory
+#   $bb_program         = the name of this script
+#   $bb_program_version = our version
+#   $bb_base_dir        = the build directory
+#   $bb_recipes_dir     = the recipe directory
 #
 # Arguments:
 #   None
@@ -678,17 +754,17 @@ function run_self() {
 #   None
 ######################################################################
 function usage() {
-  echo "$program $program_version"
+  echo "$bb_program $bb_program_version"
   cat <<EOF
-usage: $program [options] <recipe(s)>
+usage: $bb_program [options] <recipe(s)>
 
 options:
-  -b DIR    Set the build directory (default: $base_dir)
+  -b DIR    Set the build directory (default: $bb_base_dir)
   -h        Print this help
   -m        Monochrome - disable colors.
-  -o DIR    Set the output directory (default: $out_dir)
+  -o DIR    Set the output directory (default: $bb_out_dir)
   -q        Be more quiet
-  -r DIR    Set the recipes directory (default: $recipes_dir)
+  -r DIR    Set the recipes directory (default: $bb_recipes_dir)
   -v        Be more verbose
 EOF
   exit 0
@@ -714,15 +790,15 @@ if [[ -n "${BBUILD_BUILD_RECIPE:-}" ]]; then
 fi
 
 # Default values of variables
-base_dir=$(pwd)/build
-recipes_dir=$(pwd)/recipes
-out_dir=$(pwd)/out
+bb_base_dir=$(pwd)/build
+bb_recipes_dir=$(pwd)/recipes
+bb_out_dir=$(pwd)/out
 
 # Parse arguments
 while getopts ":b:hmo:qr:v" opt; do
   case $opt in
     b)
-      base_dir="$OPTARG"
+      bb_base_dir="$OPTARG"
       ;;
     h)
       usage
@@ -731,16 +807,16 @@ while getopts ":b:hmo:qr:v" opt; do
       set_colors "off"
       ;;
     o)
-      out_dir="$OPTARG"
+      bb_out_dir="$OPTARG"
       ;;
     q)
-      verbosity=$(( verbosity + 1 ))
+      bb_verbosity=$(( bb_verbosity + 1 ))
       ;;
     r)
-      recipes_dir="$OPTARG"
+      bb_recipes_dir="$OPTARG"
       ;;
     v)
-      verbosity=$(( verbosity - 1 ))
+      bb_verbosity=$(( bb_verbosity - 1 ))
       ;;
     \?)
       error "Invalid option: -$OPTARG"
@@ -757,24 +833,24 @@ done
 shift $((OPTIND - 1))
 
 # Mark variables as read-only, and compute derived variables
-readonly base_dir recipes_dir verbosity
-declare -r cache_dir="$base_dir"/.cache
-declare -r depconf_dir="$base_dir"/.depconf
+readonly bb_base_dir bb_recipes_dir bb_verbosity
+declare -r bb_cache_dir="$bb_base_dir"/.cache
+declare -r bb_depconf_dir="$bb_base_dir"/.depconf
 
 # Help!
 debug "Flag parsing finished, have $# packages to build"
-debug "    base_dir    = ${base_dir}"
-debug "    recipes_dir = ${recipes_dir}"
-debug "    verbosity   = ${verbosity}"
-debug "    cache_dir   = ${cache_dir}"
-debug "    depconf_dir = ${depconf_dir}"
-debug "    out_dir     = ${out_dir}"
+debug "    bb_base_dir    = ${bb_base_dir}"
+debug "    bb_recipes_dir = ${bb_recipes_dir}"
+debug "    bb_verbosity   = ${bb_verbosity}"
+debug "    bb_cache_dir   = ${bb_cache_dir}"
+debug "    bb_depconf_dir = ${bb_depconf_dir}"
+debug "    bb_out_dir     = ${bb_out_dir}"
 
 # SIGINT handling - print a nice message
 trap 'die "Aborted by user"' INT
 
 # Create necessary directories
-for dir in "$base_dir" "$cache_dir" "$depconf_dir" "$out_dir"; do
+for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_depconf_dir" "$bb_out_dir"; do
   mkdir -p "$dir" || exit 1
 done
 

@@ -15,7 +15,7 @@ binary=false
 dependencies=()
 
 # Common variables.
-_builddir="$source_dir/xz-$pkgver"
+_builddir="$BBUILD_SOURCE_DIR/xz-$pkgver"
 
 
 # Prepare the build.
@@ -27,7 +27,7 @@ function prepare() {
         case $i in
             *.patch)
                 msg $i
-                patch -p1 -i "$source_dir"/$i || return 1
+                patch -p1 -i "$BBUILD_SOURCE_DIR"/$i || return 1
                 ;;
         esac
     done

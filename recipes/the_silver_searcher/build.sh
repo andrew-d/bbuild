@@ -15,7 +15,7 @@ binary=true
 dependencies=("lzma" "pcre" "zlib")
 
 # Common variables.
-_builddir="$source_dir/$pkgname-$pkgver"
+_builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
 
 
 function build() {
@@ -43,6 +43,6 @@ function build() {
 function package() {
     cd "$_builddir"
 
-    cp ag "$outdir"/ag
-    ${STRIP} "$outdir"/ag
+    cp ag "$BBUILD_OUT_DIR"/ag
+    ${STRIP} "$BBUILD_OUT_DIR"/ag
 }

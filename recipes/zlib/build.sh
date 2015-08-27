@@ -17,7 +17,7 @@ binary=false
 dependencies=()
 
 # Common variables.
-_builddir="$source_dir/$pkgname-$pkgver"
+_builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
 
 function build() {
     cd "$_builddir"
@@ -38,6 +38,6 @@ function build() {
 }
 
 function setup_env() {
-    echo "-I${_builddir}"     > "$depdir"/CPPFLAGS
-    echo "-L${_builddir} -lz" > "$depdir"/LDFLAGS
+    echo "-I${_builddir}"     > "$BBUILD_DEP_DIR"/CPPFLAGS
+    echo "-L${_builddir} -lz" > "$BBUILD_DEP_DIR"/LDFLAGS
 }
