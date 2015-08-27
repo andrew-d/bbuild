@@ -21,7 +21,7 @@ set -u              # Attempting to use an undefined variable will print an
 #   | program_version | The version of this script                  |
 #   | base_dir        | Base directory for performing the build in  |
 #   | cache_dir       | Directory used for storing cache of sources |
-#   | recipe_dir      | Directory that contains our recipes         |
+#   | recipes_dir     | Directory that contains all recipes         |
 #   | source_dir      | Per-recipe directory that contains sources  |
 #   +-----------------+---------------------------------------------+
 #
@@ -256,19 +256,20 @@ function url_from_source() {
 # Local file sources are symlinked into the target directory.
 #
 # Globals:
-#   $recipe_dir = the recipe directory
 #   $cache_dir  = the cache directory for downloaded sources
 #
 # Arguments:
 #   $1 = target directory
-#   $2 .. = sources
+#   $2 = directory for this recipe
+#   $3 ... = sources
 #
 # Returns:
 #   0 on success, 1 on failure
 ######################################################################
 function default_fetch() {
   local target_dir="$1"
-  shift
+  local recipe_dir="$2"
+  shift 2
 
   declare -ar sources=("${@}")
   local filename url
@@ -302,8 +303,10 @@ function default_fetch() {
 # defined 'sources' variable and passes it to default_fetch.
 #
 # Globals:
-#   $source_dir = the cache directory for downloaded sources
-#   $sources    = defined sources array
+#   $recipes_dir = the recipes directory
+#   $source_dir  = the cache directory for downloaded sources
+#   $pkgname     = defined package name
+#   $sources     = defined sources array
 #
 # Arguments:
 #   None
@@ -313,48 +316,78 @@ function default_fetch() {
 ######################################################################
 function fetch() {
   mkdir -p "$source_dir"
-  default_fetch "$source_dir" "${sources[@]}" || return 1
+
+  # fetch <into> <recipe source directory> <source 1> <source 2>...
+  default_fetch \
+    "$source_dir" \
+    "$recipes_dir"/"$pkgname" \
+    "${sources[@]}" \
+    || return 1
 
   return 0
 }
 
 
-# TODO: document
+######################################################################
+# Given a directory and an array of sources, will extract the filename
+# from each source and check to see if it needs to be unpacked.
+# If so, it will extract the given archive within the given input
+# directory.
+#
+# Globals:
+#   None
+#
+# Arguments:
+#   $1 = directory in which the sources are stored
+#   $2 ... = sources
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
 function default_unpack() {
+  local in_dir="$1"
+  shift
+
   declare -ar sources=("${@}")
 
-  mkdir -p "$source_dir"
+  mkdir -p "$in_dir"
 
   info "Unpacking..."
   for u in "${sources[@]}"; do
-    local fname dst
+    local fname fpath
     fname=$(filename_from_source "$u")
-    dst="$source_dir"/"$fname"
+    fpath="$in_dir"/"$fname"
 
-    case "$dst" in
+    # Sanity check
+    if [[ ! -e "$fpath" ]]; then
+      error "Source '${fname}' does not exist in ${in_dir}!"
+      return 1
+    fi
+
+    case "$fpath" in
       *.tar)
         info2 "Unpacking $fname..."
-        tar -C "$source_dir" -xf "$dst" || return 1
+        tar -C "$in_dir" -xf "$fpath" || return 1
         ;;
       *.tar.gz|*.tgz)
         info2 "Unpacking $fname..."
-        tar -C "$source_dir" -zxf "$dst" || return 1
+        tar -C "$in_dir" -zxf "$fpath" || return 1
         ;;
       *.tar.bz2)
         info2 "Unpacking $fname..."
-        tar -C "$source_dir" -jxf "$dst" || return 1
+        tar -C "$in_dir" -jxf "$fpath" || return 1
         ;;
       *.tar.lzma)
         info2 "Unpacking $fname..."
-        unlzma -c "$dst" | tar -C "$source_dir" -x || return 1
+        unlzma -c "$fpath" | tar -C "$in_dir" -x || return 1
         ;;
       *.tar.xz)
         info2 "Unpacking $fname..."
-        unxz -c "$dst" | tar -C "$source_dir" -x || return 1
+        unxz -c "$fpath" | tar -C "$in_dir" -x || return 1
         ;;
       *.zip)
         info2 "Unpacking $fname..."
-        unzip "$dst" -d "$source_dir" || return 1
+        unzip "$fpath" -d "$in_dir" || return 1
         ;;
     esac
   done
@@ -363,9 +396,22 @@ function default_unpack() {
 }
 
 
-# TODO: document
+######################################################################
+# Default 'unpack' implementation that simply takes the global,
+# recipe-defined 'sources' variable and passes it to default_unpack.
+#
+# Globals:
+#   $source_dir = the cache directory for downloaded sources
+#   $sources    = defined sources array
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
 function unpack() {
-  default_unpack "${sources[@]}" || return 1
+  default_unpack "$source_dir" "${sources[@]}" || return 1
 
   return 0
 }
@@ -375,8 +421,8 @@ function unpack() {
 # Starts the builds for the given recipe.
 #
 # Globals:
-#   $base_dir   = the build directory
-#   $recipe_dir = the recipe directory
+#   $base_dir    = the build directory
+#   $recipes_dir = the recipes directory
 #
 # Arguments:
 #   $1 = recipe name to build
@@ -387,12 +433,12 @@ function unpack() {
 function run_build() {
   local recipe_name="$1"
 
-  local recipe_path="$recipe_dir"/"$recipe_name"
-  if [[ ! -d "$recipe_path" ]]; then
+  local this_recipe_dir="$recipes_dir"/"$recipe_name"
+  if [[ ! -d "$this_recipe_dir" ]]; then
     error "Recipe '$recipe_name' does not exist!"
     return 1
   fi
-  if [[ ! -s "${recipe_path}/build.sh" ]]; then
+  if [[ ! -s "${this_recipe_dir}/build.sh" ]]; then
     error "Recipe '$recipe_name' exists, but 'build.sh' is missing!"
     return 1
   fi
@@ -408,8 +454,8 @@ function run_build() {
     setup_build_environment
 
     # Load the build script.
-    debug "Recipe path = ${recipe_path}"
-    source "$recipe_path/build.sh"
+    debug "Recipe path = ${this_recipe_dir}"
+    source "$this_recipe_dir/build.sh"
 
     # Build all dependencies.
     if [[ ${dependencies:-} ]]; then
@@ -528,7 +574,7 @@ function setup_build_environment() {
 #
 # Globals:
 #   $base_dir   = the build directory
-#   $recipe_dir = the recipe directory
+#   $recipes_dir = the recipe directory
 #
 # Arguments:
 #   None
@@ -546,7 +592,7 @@ options:
   -h        Print this help
   -m        Monochrome - disable colors.
   -q        Be more quiet
-  -r DIR    Set the recipe directory (default: $recipe_dir)
+  -r DIR    Set the recipes directory (default: $recipes_dir)
   -v        Be more verbose
 EOF
   exit 0
@@ -573,7 +619,7 @@ fi
 
 # Default values of variables
 base_dir=$(pwd)/build
-recipe_dir=$(pwd)/recipes
+recipes_dir=$(pwd)/recipes
 
 # Parse arguments
 while getopts ":b:hmqr:v" opt; do
@@ -591,7 +637,7 @@ while getopts ":b:hmqr:v" opt; do
       verbosity=$(( verbosity + 1 ))
       ;;
     r)
-      recipe_dir="$OPTARG"
+      recipes_dir="$OPTARG"
       ;;
     v)
       verbosity=$(( verbosity - 1 ))
@@ -612,7 +658,7 @@ shift $((OPTIND - 1))
 debug "Flag parsing finished, have $# packages to build"
 
 # Mark variables as read-only, and compute derived variables
-readonly base_dir recipe_dir verbosity
+readonly base_dir recipes_dir verbosity
 declare -r cache_dir="$base_dir"/.cache
 
 # SIGINT handling - print a nice message
