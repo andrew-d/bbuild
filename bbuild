@@ -56,6 +56,13 @@ bb_program_path="$0"
 bb_program_version=0.0.1
 declare -i bb_verbosity=2
 
+# Default variables.
+BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
+BBUILD_HOST_ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
+BBUILD_TARGET_PLATFORM=linux
+BBUILD_TARGET_ARCH=x86_64
+
+
 # Color definitions (start as 'on').
 NORMAL="\033[1;0m"
 ##STRONG="\033[1;1m"
@@ -698,13 +705,6 @@ function setup_env() {
 #   0 on success, 1 on failure
 ######################################################################
 function setup_build_environment() {
-  BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
-  BBUILD_HOST_ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-
-  # TODO: figure me out properly from command line
-  BBUILD_TARGET_PLATFORM=linux
-  BBUILD_TARGET_ARCH=x86_64
-
   case "${BBUILD_TARGET_PLATFORM}-${BBUILD_TARGET_ARCH}" in
     linux-x86_64)
       BBUILD_CROSS_PREFIX=x86_64-linux-musl
@@ -722,10 +722,10 @@ function setup_build_environment() {
       error "Cannot determine cross prefix for ${BBUILD_TARGET_PLATFORM}/${BBUILD_TARGET_ARCH}"
       return 1
   esac
+  debug "BBUILD_CROSS_PREFIX = $BBUILD_CROSS_PREFIX"
 
   # Make everything readonly
   readonly BBUILD_HOST_PLATFORM BBUILD_HOST_ARCH
-  readonly BBUILD_TARGET_PLATFORM BBUILD_TARGET_ARCH
   readonly BBUILD_CROSS_PREFIX
 
   # Set up build tools with prefixes
@@ -772,7 +772,12 @@ function setup_build_environment() {
 function run_self() {
   local args
 
-  args="-b ${bb_base_dir} -r ${bb_recipes_dir} -o ${bb_out_dir}"
+  args=""
+  args+="-a ${BBUILD_TARGET_ARCH} "
+  args+="-b ${bb_base_dir} "
+  args+="-o ${bb_out_dir} "
+  args+="-p ${BBUILD_TARGET_PLATFORM} "
+  args+="-r ${bb_recipes_dir}"
 
   if [[ -z "$RED" ]]; then
     args="$args -m"
@@ -820,11 +825,13 @@ function usage() {
 usage: $bb_program [options] <recipe(s)>
 
 options:
+  -a ARCH   Set the target architecture (default: $BBUILD_TARGET_ARCH)
   -b DIR    Set the build directory (default: $bb_base_dir)
   -h        Print this help
   -k        Don't rebuild dependencies
   -m        Monochrome - disable colors.
   -o DIR    Set the output directory (default: $bb_out_dir)
+  -p PLAT   Set the target platform (default: $BBUILD_TARGET_PLATFORM)
   -q        Be more quiet
   -r DIR    Set the recipes directory (default: $bb_recipes_dir)
   -v        Be more verbose
@@ -858,8 +865,11 @@ bb_out_dir=$(pwd)/out
 bb_rebuild=yes
 
 # Parse arguments
-while getopts ":b:hkmo:qr:v" opt; do
+while getopts ":a:b:hkmo:p:qr:v" opt; do
   case $opt in
+    a)
+      BBUILD_TARGET_ARCH="$OPTARG"
+      ;;
     b)
       bb_base_dir="$OPTARG"
       ;;
@@ -874,6 +884,9 @@ while getopts ":b:hkmo:qr:v" opt; do
       ;;
     o)
       bb_out_dir="$OPTARG"
+      ;;
+    p)
+      BBUILD_TARGET_PLATFORM="$OPTARG"
       ;;
     q)
       bb_verbosity=$(( bb_verbosity + 1 ))
@@ -900,6 +913,7 @@ shift $((OPTIND - 1))
 
 # Mark variables as read-only, and compute derived variables
 readonly bb_base_dir bb_rebuild bb_recipes_dir bb_verbosity
+readonly BBUILD_TARGET_PLATFORM BBUILD_TARGET_ARCH
 declare -r bb_cache_dir="$bb_base_dir"/.cache
 declare -r bb_depconf_dir="$bb_base_dir"/.depconf
 
@@ -912,6 +926,8 @@ debug "    bb_out_dir     = ${bb_out_dir}"
 debug "    bb_rebuild     = ${bb_rebuild}"
 debug "    bb_recipes_dir = ${bb_recipes_dir}"
 debug "    bb_verbosity   = ${bb_verbosity}"
+debug "    BBUILD_TARGET_PLATFORM = ${BBUILD_TARGET_PLATFORM}"
+debug "    BBUILD_TARGET_ARCH     = ${BBUILD_TARGET_ARCH}"
 
 # SIGINT handling - print a nice message
 trap 'die "Aborted by user"' INT

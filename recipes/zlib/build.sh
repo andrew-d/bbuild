@@ -29,9 +29,11 @@ function build() {
 		--static
 
     if [[ "${BBUILD_TARGET_PLATFORM}" = "darwin" ]]; then
+		info2 "Fixing AR path"
         sed -i \
             -e "s|AR=/usr/bin/libtool|AR=${AR}|g" \
-            -e 's|ARFLAGS=-o|ARFLAGS=rc|g'
+            -e 's|ARFLAGS=-o|ARFLAGS=rc|g' \
+			Makefile
     fi
 
     make || return 1
