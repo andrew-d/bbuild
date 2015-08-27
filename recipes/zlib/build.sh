@@ -38,5 +38,6 @@ function build() {
 }
 
 function setup_env() {
-    echo "Would set up environment here"
+    echo "-I${_builddir}"     > "$depdir"/CPPFLAGS
+    echo "-L${_builddir} -lz" > "$depdir"/LDFLAGS
 }

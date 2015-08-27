@@ -43,12 +43,7 @@ function build() {
     make || return 1
 }
 
-
-function package() {
-    echo "Would copy package files here"
-}
-
-
 function setup_env() {
-    echo "Would set up environment here"
+    echo "-I${_builddir}/src/liblzma/api"          > "$depdir"/CPPFLAGS
+    echo "-L${_builddir}/src/liblzma/.libs -llzma" > "$depdir"/LDFLAGS
 }

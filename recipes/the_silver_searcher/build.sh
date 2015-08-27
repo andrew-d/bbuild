@@ -12,7 +12,7 @@ sums=(
 library=false
 binary=true
 
-dependencies=()
+dependencies=("lzma" "pcre" "zlib")
 
 # Common variables.
 _builddir="$source_dir/$pkgname-$pkgver"
@@ -25,21 +25,24 @@ function build() {
 
     CC="${CC} ${BBUILD_STATIC_FLAGS}" \
     CFLAGS="-fPIC ${BBUILD_STATIC_FLAGS}" \
-    PCRE_LIBS="TODO" \
-    PCRE_CFLAGS="TODO" \
-    LZMA_LIBS="TODO" \
-    LZMA_CFLAGS="TODO" \
-    ZLIB_LIBS="TODO" \
-    ZLIB_CFLAGS="TODO" \
+    LZMA_LIBS="$(cat "$depconf_dir"/lzma/LDFLAGS)" \
+    LZMA_CFLAGS="$(cat "$depconf_dir"/lzma/CPPFLAGS)" \
+    PCRE_LIBS="$(cat "$depconf_dir"/pcre/LDFLAGS)" \
+    PCRE_CFLAGS="$(cat "$depconf_dir"/pcre/CPPFLAGS)" \
+    ZLIB_LIBS="$(cat "$depconf_dir"/zlib/LDFLAGS)" \
+    ZLIB_CFLAGS="$(cat "$depconf_dir"/zlib/CPPFLAGS)" \
     ./configure \
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
-        PKG_CONFIG=/bin/true || true
+        PKG_CONFIG=/bin/true || return 1
 
     make || return 1
 }
 
 
 function package() {
-    echo "Would copy package files here"
+    cd "$_builddir"
+
+    cp ag "$outdir"/ag
+    ${STRIP} "$outdir"/ag
 }

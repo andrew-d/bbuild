@@ -18,9 +18,13 @@ set -u              # Attempting to use an undefined variable will print an
 #   |      NAME       | DESCRIPTION                                 |
 #   +-----------------+---------------------------------------------+
 #   | program         | The name of this script                     |
+#   | program_path    | The full path of this script                |
 #   | program_version | The version of this script                  |
 #   | base_dir        | Base directory for performing the build in  |
 #   | cache_dir       | Directory used for storing cache of sources |
+#   | depconf_dir     | Directory that stores environment variable  |
+#   |                 | specifications for library recipes          |
+#   | out_dir         | Output directory for final build products   |
 #   | recipes_dir     | Directory that contains all recipes         |
 #   | source_dir      | Per-recipe directory that contains sources  |
 #   +-----------------+---------------------------------------------+
@@ -30,6 +34,7 @@ set -u              # Attempting to use an undefined variable will print an
 
 # Global script information.
 program=${0##*/}
+program_path="$0"
 program_version=0.0.1
 declare -i verbosity=2
 
@@ -261,7 +266,6 @@ function url_from_source() {
 # Arguments:
 #   $1 = target directory
 #   $2 = directory for this recipe
-#   $3 ... = sources
 #
 # Returns:
 #   0 on success, 1 on failure
@@ -271,8 +275,8 @@ function default_fetch() {
   local recipe_dir="$2"
   shift 2
 
-  declare -ar sources=("${@}")
-  local filename url
+  #declare -ar sources=("${@}")
+  local filename filepath url
 
   debug "Have ${#sources[@]} source(s) to fetch"
 
@@ -281,16 +285,44 @@ function default_fetch() {
     return 0
   fi
 
-  for s in "${sources[@]}"; do
-    info "Fetching source: $s"
-    filename=$(filename_from_source "$s")
+  local i src checksum filesum
+  for i in $(seq 0 $((${#sources[@]} - 1))); do
+    src="${sources[$i]}"
+    checksum="${sums[$i]}"
 
-    if is_remote "$s"; then
-      url=$(url_from_source "$s")
-      fetch_url "$url" "$cache_dir"/"$filename" || return 1
-      ln -sf "$cache_dir"/"$filename" "$target_dir"/ || return 1
-    else
-      ln -sf "$recipe_dir/$s" "$target_dir"/ || return 1
+    filename=$(filename_from_source "$src")
+    filepath="$target_dir"/"$filename"
+
+    # If the file doesn't already exist...
+    if [[ ! -e "$filepath" ]]; then
+      info "Fetching source: $src"
+
+      if is_remote "$src"; then
+        url=$(url_from_source "$src")
+        fetch_url "$url" "$cache_dir"/"$filename" || return 1
+        ln -sf "$cache_dir"/"$filename" "$target_dir"/ || return 1
+      else
+        ln -sf "$recipe_dir/$src" "$target_dir"/ || return 1
+      fi
+    fi
+
+    # Verify the hash on the file.
+    filesum=$(sha256sum < "$filepath" | sed -rn 's/^([a-f0-9]+).*$/\1/p')
+
+    if [[ "$filesum" != "$checksum" ]]; then
+      error "Hash of source $filename does not match (actual: $filesum)"
+      error "The source and cached file on-disk will be deleted."
+      error "Rebuilding will re-download the file, which in some cases may fix the problem"
+
+      info2 "Deleting: $filepath"
+      rm "$filepath"
+
+      if is_remote "$src"; then
+        info2 "Deleting: $cache_dir/$filename"
+        rm "$cache_dir"/"$filename"
+      fi
+
+      return 1
     fi
   done
 
@@ -443,24 +475,46 @@ function run_build() {
     return 1
   fi
 
-  # Make the source directory.
+  # Make the various per-recipe directories.
   local srcdir="$base_dir"/"$recipe_name"
-  mkdir -p "$srcdir"
+  mkdir -p "$srcdir" || return 1
 
-  # Run the remaining commands in a subshell.
+  local depdir="$depconf_dir"/"$recipe_name"
+  mkdir -p "$depdir" || return 1
+
+  # Run the remaining commands in a subshell, so we don't pollute the main
+  # environment with the source'd variables.
   (
     # Set up variables.
     source_dir="$srcdir"
-    setup_build_environment
+    setup_build_environment || exit 1
 
     # Load the build script.
     debug "Recipe path = ${this_recipe_dir}"
     source "$this_recipe_dir/build.sh"
 
-    # Build all dependencies.
     if [[ ${dependencies:-} ]]; then
+      # Build all dependencies.
       for dep in "${dependencies[@]}"; do
-        echo "Would build dependency $dep"
+        info "Building dependency: $dep"
+        run_self "$dep"
+
+        echo '' >&2
+      done
+
+      # Source all dependency environment variables.
+      for dep in "${dependencies[@]}"; do
+        local env_vars var_file
+        env_vars=$(find "$depconf_dir"/"$dep" -type f | xargs -n1 basename)
+
+        for var in $env_vars; do
+          var_file="$depconf_dir"/"$dep"/"$var"
+
+          # The ${!var} syntax says 'read the environment variable with the
+          # name that is the content of the var variable'.  This line should
+          # set $var to the value of $var plus the variables from the file.
+          export $var="${!var:-} $(cat "$var_file")"
+        done
       done
     fi
 
@@ -475,9 +529,17 @@ function run_build() {
     build || exit 1
 
     if [[ "${binary:-}" == "true" ]]; then
+      # Each package should copy files to the output directory.  Need to make
+      # this here, since it depends on the version.
+      declare -xr outdir="$out_dir"/"$recipe_name"/"$pkgver"
+      mkdir -p "$outdir" || return 1
+
       package || exit 1
     fi
+
     if [[ "${library:-}" == "true" ]]; then
+      # Each package should create a environment variable files under $depdir
+      declare -xr depdir="$depdir"
       setup_env || exit 1
     fi
 
@@ -569,6 +631,39 @@ function setup_build_environment() {
 }
 
 
+# TODO: document
+function run_self() {
+  local args extra_args
+
+  args="-b ${base_dir} -r ${recipes_dir} -o ${out_dir}"
+
+  if [[ -z "$RED" ]]; then
+    args="$args -m"
+  fi
+
+  case $verbosity in
+    0)
+      args="$args -v"
+      ;;
+    1)
+      # Do nothing - default
+      ;;
+    2)
+      args="$args -q"
+      ;;
+    3)
+      args="$args -q -q"
+      ;;
+  esac
+
+  extra_args="$@"
+
+  debug "Running self with: ${program_path} ${args} ${extra_args}"
+  ${program_path} ${args} ${extra_args}
+  return $?
+}
+
+
 ######################################################################
 # Prints the usage for this script.
 #
@@ -591,6 +686,7 @@ options:
   -b DIR    Set the build directory (default: $base_dir)
   -h        Print this help
   -m        Monochrome - disable colors.
+  -o DIR    Set the output directory (default: $out_dir)
   -q        Be more quiet
   -r DIR    Set the recipes directory (default: $recipes_dir)
   -v        Be more verbose
@@ -620,9 +716,10 @@ fi
 # Default values of variables
 base_dir=$(pwd)/build
 recipes_dir=$(pwd)/recipes
+out_dir=$(pwd)/out
 
 # Parse arguments
-while getopts ":b:hmqr:v" opt; do
+while getopts ":b:hmo:qr:v" opt; do
   case $opt in
     b)
       base_dir="$OPTARG"
@@ -632,6 +729,9 @@ while getopts ":b:hmqr:v" opt; do
       ;;
     m)
       set_colors "off"
+      ;;
+    o)
+      out_dir="$OPTARG"
       ;;
     q)
       verbosity=$(( verbosity + 1 ))
@@ -655,17 +755,26 @@ done
 
 # Remove all flags, just leaving our arguments.
 shift $((OPTIND - 1))
-debug "Flag parsing finished, have $# packages to build"
 
 # Mark variables as read-only, and compute derived variables
 readonly base_dir recipes_dir verbosity
 declare -r cache_dir="$base_dir"/.cache
+declare -r depconf_dir="$base_dir"/.depconf
+
+# Help!
+debug "Flag parsing finished, have $# packages to build"
+debug "    base_dir    = ${base_dir}"
+debug "    recipes_dir = ${recipes_dir}"
+debug "    verbosity   = ${verbosity}"
+debug "    cache_dir   = ${cache_dir}"
+debug "    depconf_dir = ${depconf_dir}"
+debug "    out_dir     = ${out_dir}"
 
 # SIGINT handling - print a nice message
 trap 'die "Aborted by user"' INT
 
 # Create necessary directories
-for dir in "$base_dir" "$cache_dir"; do
+for dir in "$base_dir" "$cache_dir" "$depconf_dir" "$out_dir"; do
   mkdir -p "$dir" || exit 1
 done
 

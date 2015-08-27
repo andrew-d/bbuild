@@ -1,7 +1,9 @@
 all:
 
+.PHONY: lint
+lint:
+	@shellcheck --shell=bash ./bbuild || true
 
 .PHONY: test
 test:
-	@shellcheck ./bbuild
 	@./test_bbuild
