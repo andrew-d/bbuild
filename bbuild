@@ -182,9 +182,13 @@ function fetch_url() {
   local url="$1"
   local target="$2"
 
-  # TODO: options if verbose/not verbose
+  local quiet_args
+  if [[ "$bb_verbosity" -gt 2 ]]; then
+    quiet_args=-s
+  fi
+
   # TODO: fall back to wget if curl not present
-  curl -L -o "$target" "$url" || exit 1
+  curl -L "${quiet_args}" -o "$target" "$url" || exit 1
   return 0
 }
 
