@@ -23,7 +23,7 @@ function prepare() {
     cd "$_builddir"
 
     # Apply all patches in our sources
-    for i in $sources; do
+	for i in "${sources[@]}"; do
         case $i in
             *.patch)
                 info2 $i

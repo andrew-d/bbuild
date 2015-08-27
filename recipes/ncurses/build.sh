@@ -36,7 +36,7 @@ function prepare() {
     patch -p1 -i "$BBUILD_SOURCE_DIR"/ncurses-5.9-gcc-5.patch || return 1
 
     if [[ "$BBUILD_TARGET_PLATFORM" = "darwin" ]]; then
-        for i in $sources; do
+        for i in "${sources[@]}"; do
             case $i in
                 darwin-*.patch)
                     info2 $i
