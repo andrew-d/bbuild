@@ -35,7 +35,7 @@ declare -i verbosity=2
 
 # Color definitions (start as 'on').
 NORMAL="\033[1;0m"
-STRONG="\033[1;1m"
+##STRONG="\033[1;1m"
 RED="\033[1;31m"
 GREEN="\033[1;32m"
 YELLOW="\033[1;33m"
@@ -60,7 +60,7 @@ function set_colors() {
   case "$1" in
     on)
       NORMAL="\033[1;0m"
-      STRONG="\033[1;1m"
+      ##STRONG="\033[1;1m"
       RED="\033[1;31m"
       GREEN="\033[1;32m"
       YELLOW="\033[1;33m"
@@ -70,7 +70,7 @@ function set_colors() {
       ;;
     off)
       NORMAL=""
-      STRONG=""
+      ##STRONG=""
       RED=""
       GREEN=""
       YELLOW=""
@@ -313,16 +313,20 @@ function default_fetch() {
 ######################################################################
 function fetch() {
   mkdir -p "$source_dir"
-  default_fetch "$source_dir" "${sources[@]}"
+  default_fetch "$source_dir" "${sources[@]}" || return 1
+
+  return 0
 }
 
 
 # TODO: document
 function default_unpack() {
+  declare -ar sources=("${@}")
+
   mkdir -p "$source_dir"
 
   info "Unpacking..."
-  for u in $sources; do
+  for u in "${sources[@]}"; do
     local fname dst
     fname=$(filename_from_source "$u")
     dst="$source_dir"/"$fname"
@@ -359,8 +363,9 @@ function default_unpack() {
 }
 
 
+# TODO: document
 function unpack() {
-  default_unpack || return 1
+  default_unpack "${sources[@]}" || return 1
 
   return 0
 }
@@ -374,10 +379,10 @@ function unpack() {
 #   $recipe_dir = the recipe directory
 #
 # Arguments:
-#   None
+#   $1 = recipe name to build
 #
 # Returns:
-#   None
+#   0 on success, 1 on failure
 ######################################################################
 function run_build() {
   local recipe_name="$1"
@@ -408,7 +413,7 @@ function run_build() {
 
     # Build all dependencies.
     if [[ ${dependencies:-} ]]; then
-      for dep in ${dependencies[@]}; do
+      for dep in "${dependencies[@]}"; do
         echo "Would build dependency $dep"
       done
     fi
@@ -462,8 +467,8 @@ function setup_env() {
 
 
 function setup_build_environment() {
-  BBUILD_HOST_PLATFORM=$(uname | tr 'A-Z' 'a-z')
-  BBUILD_HOST_ARCH=$(uname -m | tr 'A-Z' 'a-z')
+  BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
+  BBUILD_HOST_ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
 
   # TODO: figure me out properly from command line
   BBUILD_TARGET_PLATFORM=linux
@@ -493,12 +498,12 @@ function setup_build_environment() {
   readonly BBUILD_CROSS_PREFIX
 
   # Set up build tools with prefixes
-  AR="${BBUILD_CROSS_PREFIX}-ar"
-  CC="${BBUILD_CROSS_PREFIX}-gcc"
-  CXX="${BBUILD_CROSS_PREFIX}-g++"
-  LD="${BBUILD_CROSS_PREFIX}-ld"
-  RANLIB="${BBUILD_CROSS_PREFIX}-ranlib"
-  STRIP="${BBUILD_CROSS_PREFIX}-strip"
+  export AR="${BBUILD_CROSS_PREFIX}-ar"
+  export CC="${BBUILD_CROSS_PREFIX}-gcc"
+  export CXX="${BBUILD_CROSS_PREFIX}-g++"
+  export LD="${BBUILD_CROSS_PREFIX}-ld"
+  export RANLIB="${BBUILD_CROSS_PREFIX}-ranlib"
+  export STRIP="${BBUILD_CROSS_PREFIX}-strip"
 
   # Declare static flags
   BBUILD_STATIC_FLAGS=" -static "
@@ -511,8 +516,8 @@ function setup_build_environment() {
 
   # Special-case for cross-compiling to darwin.
   if [[ "$BBUILD_TARGET_PLATFORM" = "darwin" ]]; then
-    CC="${BBUILD_CROSS_PREFIX}-clang"
-    CXX="${BBUILD_CROSS_PREFIX}-clang++"
+    export CC="${BBUILD_CROSS_PREFIX}-clang"
+    export CXX="${BBUILD_CROSS_PREFIX}-clang++"
     declare -xr OSXCROSS_NO_INCLUDE_PATH_WARNINGS=1
   fi
 }
