@@ -26,7 +26,7 @@ function prepare() {
     for i in $sources; do
         case $i in
             *.patch)
-                msg $i
+                info2 $i
                 patch -p1 -i "$BBUILD_SOURCE_DIR"/$i || return 1
                 ;;
         esac
