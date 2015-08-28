@@ -4,9 +4,13 @@ pkgver="5.2.4"
 
 sources=(
     "http://www.lua.org/ftp/lua-${pkgver}.tar.gz"
+    "lua-5.2.0-advanced_readline.patch"
+    "darwin-lua-5.2.3-sig_catch.patch"
 )
 sums=(
     "b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b"
+    "33d32d11fce4f85b88ce8f9bd54e6a6cbea376dfee3dbf8cdda3640e056bc29d"
+    "f2e77f73791c08169573658caa3c97ba8b574c870a0a165972ddfbddb948c164"
 )
 
 library=false
@@ -16,6 +20,19 @@ dependencies=("readline" "ncurses")
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
+
+
+function prepare() {
+    cd "$_builddir"
+
+    info2 "Applying advanced readline patch"
+    patch -p1 -i "$BBUILD_SOURCE_DIR"/lua-5.2.0-advanced_readline.patch
+
+    if [[ "$BBUILD_TARGET_PLATFORM" = "darwin" ]]; then
+        info2 "Applying sig_catch patch"
+        patch -p1 -i "$BBUILD_SOURCE_DIR"/darwin-lua-5.2.3-sig_catch.patch
+    fi
+}
 
 
 function build() {
