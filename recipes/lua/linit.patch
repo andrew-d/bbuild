@@ -1,0 +1,33 @@
+diff --git a/src/linit.c b/src/linit.c
+index c1a3830..0e1d1f9 100644
+--- a/src/linit.c
++++ b/src/linit.c
+@@ -23,6 +23,16 @@
+ 
+ 
+ /*
++** functions that initialize third-party libraries
++*/
++int luaopen_complex (lua_State *L);
++int luaopen_lfs (lua_State *L);
++int luaopen_lpeg (lua_State *L);
++int luaopen_mime_core (lua_State *L);
++int luaopen_socket_core (lua_State *L);
++
++
++/*
+ ** these libs are loaded by lua.c and are readily available to any Lua
+ ** program
+ */
+@@ -45,6 +55,11 @@ static const luaL_Reg loadedlibs[] = {
+ ** these libs are preloaded and must be required before used
+ */
+ static const luaL_Reg preloadedlibs[] = {
++  {"complex", luaopen_complex},
++  {"lfs", luaopen_lfs},
++  {"lpeg", luaopen_lpeg},
++  {"mime", luaopen_mime_core},
++  {"socket", luaopen_socket_core},
+   {NULL, NULL}
+ };
+ 
