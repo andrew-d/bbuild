@@ -31,7 +31,6 @@ set -u              # Attempting to use an undefined variable will print an
 # | bb_program_version     | The version of this script                  |
 # | bb_base_dir            | Base directory for performing the build in  |
 # | bb_cache_dir           | Directory used for storing cache of sources |
-# | bb_depconf_dir         | Directory that stores environment variable  |
 # |                        | specifications for library recipes          |
 # | bb_out_dir             | Output directory for final build products   |
 # | bb_recipes_dir         | Directory that contains all recipes         |
@@ -39,6 +38,7 @@ set -u              # Attempting to use an undefined variable will print an
 # +------------------------+---------------------------------------------+
 # | BBUILD_SOURCE_DIR      | Per-recipe directory that contains sources  |
 # | BBUILD_CROSS_PREFIX    | Cross-compilation prefix                    |
+# | BBUILD_DEPCONF_DIR     | Directory that stores environment variable  |
 # | BBUILD_TARGET_PLATFORM | Target platform for this build              |
 # | BBUILD_TARGET_ARCH     | Target architecture for this build          |
 # | BBUILD_HOST_PLATFORM   | Host platform                               |
@@ -484,8 +484,8 @@ function unpack() {
 # MUST BE RUN WITHIN THE RECIPE CONTEXT.
 #
 # Globals:
-#   $dependencies   = dependencies of this recipe
-#   $bb_depconf_dir = depconf directory
+#   $dependencies       = dependencies of this recipe
+#   $BBUILD_DEPCONF_DIR = depconf directory
 #
 # Arguments:
 #   None
@@ -498,10 +498,10 @@ function _load_dependency_vars() {
     # Source all dependency environment variables.
     for dep in "${dependencies[@]}"; do
       local env_vars var_file
-      env_vars=$(find "$bb_depconf_dir"/"$dep" -type f -print0 | xargs -0 -n1 basename)
+      env_vars=$(find "$BBUILD_DEPCONF_DIR"/"$dep" -type f -print0 | xargs -0 -n1 basename)
 
       for var in $env_vars; do
-        var_file="$bb_depconf_dir"/"$dep"/"$var"
+        var_file="$BBUILD_DEPCONF_DIR"/"$dep"/"$var"
 
         # The ${!var} syntax says 'read the environment variable with the
         # name that is the content of the var variable'.  This line should
@@ -576,7 +576,7 @@ function run_build() {
   # does, then we know that this build has already been run, and thus we can
   # skip everything.
   local srcdir="$bb_base_dir"/"$recipe_name"
-  local depdir="$bb_depconf_dir"/"$recipe_name"
+  local depdir="$BBUILD_DEPCONF_DIR"/"$recipe_name"
   # TODO: proper logic for rebuilding!
   #if [[ -d "$depdir" ]]; then
   #  # Exists.  We're done!
@@ -919,17 +919,17 @@ shift $((OPTIND - 1))
 readonly bb_base_dir bb_rebuild bb_recipes_dir bb_verbosity
 readonly BBUILD_TARGET_PLATFORM BBUILD_TARGET_ARCH
 declare -r bb_cache_dir="$bb_base_dir"/.cache
-declare -r bb_depconf_dir="$bb_base_dir"/.depconf
+declare -r BBUILD_DEPCONF_DIR="$bb_base_dir"/.depconf
 
 # Help!
 debug "Flag parsing finished, have $# packages to build"
 debug "    bb_base_dir    = ${bb_base_dir}"
 debug "    bb_cache_dir   = ${bb_cache_dir}"
-debug "    bb_depconf_dir = ${bb_depconf_dir}"
 debug "    bb_out_dir     = ${bb_out_dir}"
 debug "    bb_rebuild     = ${bb_rebuild}"
 debug "    bb_recipes_dir = ${bb_recipes_dir}"
 debug "    bb_verbosity   = ${bb_verbosity}"
+debug "    BBUILD_DEPCONF_DIR     = ${BBUILD_DEPCONF_DIR}"
 debug "    BBUILD_TARGET_PLATFORM = ${BBUILD_TARGET_PLATFORM}"
 debug "    BBUILD_TARGET_ARCH     = ${BBUILD_TARGET_ARCH}"
 
@@ -937,7 +937,7 @@ debug "    BBUILD_TARGET_ARCH     = ${BBUILD_TARGET_ARCH}"
 trap 'die "Aborted by user"' INT
 
 # Create necessary directories
-for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_depconf_dir" "$bb_out_dir"; do
+for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_out_dir" "$BBUILD_DEPCONF_DIR"; do
   mkdir -p "$dir" || exit 1
 done
 
