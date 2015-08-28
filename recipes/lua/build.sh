@@ -193,7 +193,7 @@ function build() {
     cd "$_builddir"
     patch -p1 -i "$BBUILD_SOURCE_DIR"/linit.patch || return 1
 
-    debug "Additional objects: ${_lib_objs[*]}"
+    #debug "Additional objects: ${_lib_objs[*]}"
 
     # TODO: add more modules:
     #   - luaposix
