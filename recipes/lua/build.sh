@@ -27,8 +27,24 @@ function build() {
         LDFLAGS="${LDFLAGS/-l$v/ }"
     done
 
-    # TODO: add more modules (e.g. LuaFileSystem, luaposix, lpeg, LuaSocket, etc.)
+    local platform
+    case "${BBUILD_TARGET_PLATFORM}" in
+        linux|android)
+            platform=linux
+            ;;
+        darwin)
+            platform=macosx
+            ;;
+        windows)
+            platform=mingw
+            ;;
+        *)
+            error "Don't know how to build lua for platform: ${BBUILD_TARGET_PLATFORM}"
+            return 1
+            ;;
+    esac
 
+    # TODO: add more modules (e.g. LuaFileSystem, luaposix, lpeg, LuaSocket, etc.)
     make linux \
         CC="${CC}" \
         RANLIB="${RANLIB}" \
