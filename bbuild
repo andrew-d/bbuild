@@ -338,21 +338,32 @@ function default_fetch() {
     # Verify the hash on the file.
     filesum=$(sha256sum < "$filepath" | sed -rn 's/^([a-f0-9]+).*$/\1/p')
 
-    if [[ "$filesum" != "$checksum" ]]; then
-      error "Hash of source $filename does not match (actual: $filesum)"
-      error "The source and cached file on-disk will be deleted."
-      error "Rebuilding will re-download the file, which in some cases may fix the problem"
-
-      info2 "Deleting: $filepath"
-      rm "$filepath"
-
-      if is_remote "$src"; then
-        info2 "Deleting: $bb_cache_dir/$filename"
-        rm "$bb_cache_dir"/"$filename"
-      fi
-
-      return 1
+    if [[ "$filesum" == "$checksum" ]]; then
+      continue
     fi
+
+    if [[ $checksum == "SKIP" ]]; then
+      if is_remote "$src"; then
+        warn "Cannot skip non-local source: $src"
+      else
+        info2 "Skipping hash check on local file"
+        continue
+      fi
+    fi
+
+    error "Hash of source $filename does not match (actual: $filesum)"
+    error "The source and cached file on-disk will be deleted."
+    error "Rebuilding will re-download the file, which in some cases may fix the problem"
+
+    info2 "Deleting: $filepath"
+    rm "$filepath"
+
+    if is_remote "$src"; then
+      info2 "Deleting: $bb_cache_dir/$filename"
+      rm "$bb_cache_dir"/"$filename"
+    fi
+
+    return 1
   done
 
   return 0
