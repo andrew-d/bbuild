@@ -513,6 +513,11 @@ function _load_dependency_vars() {
       env_vars=$(find "$BBUILD_DEPCONF_DIR"/"$dep" -type f -print0 | xargs -0 -n1 basename)
 
       for var in $env_vars; do
+        # Skip dotfiles
+        if [[ $var == .* ]]; then
+          continue
+        fi
+
         var_file="$BBUILD_DEPCONF_DIR"/"$dep"/"$var"
 
         # The ${!var} syntax says 'read the environment variable with the
@@ -635,6 +640,7 @@ function run_build() {
     fi
 
     info "Finished building: $recipe_name"
+    touch "${depdir}/.build-complete"
     exit 0
   )
 
@@ -995,6 +1001,19 @@ function main() {
     # We're not rebuilding, but we do want to clean the directories for all
     # explicitly-specified recipes, so those will be rebuilt.
     clean_recipes=( "$@" )
+
+    # Also, clean all recipes that don't have the 'build succeeded' flag set.
+    for arg in "${bb_dependency_order[@]}"; do
+      # If the depconf directory doesn't exist, no need to clean.
+      if [[ ! -d "${BBUILD_DEPCONF_DIR}/${arg}" ]]; then
+        continue
+      fi
+
+      if [[ ! -e "${BBUILD_DEPCONF_DIR}/${arg}/.build-complete" ]]; then
+        warn "Cleaning recipe '$arg' since a previous build did not complete"
+        clean_recipes=( "${clean_recipes[@]}" "${arg}" )
+      fi
+    done
   fi
 
   # Actually do the cleaning.
