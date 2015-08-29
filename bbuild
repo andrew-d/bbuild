@@ -528,30 +528,29 @@ function _load_dependency_vars() {
 
 
 ######################################################################
-# Helper function that builds all dependencies.
-# MUST BE RUN WITHIN THE RECIPE CONTEXT.
+# Checks whether the given recipe exists.
 #
 # Globals:
-#   $dependencies   = dependencies of this recipe
+#   $bb_recipes_dir = the recipes directory
 #
 # Arguments:
-#   None
+#   $1 = recipe name to check
 #
 # Returns:
-#   0 on success, 1 on failure
+#   0 if it exists, 1 otherwise
 ######################################################################
-function _build_dependencies() {
-  if [[ ${dependencies:-} ]]; then
-    # Build all dependencies.
-    for dep in "${dependencies[@]}"; do
-      info "Building dependency: $dep"
-      run_self "$dep" || return 1
+function check_recipe_exists() {
+  local recipe_name="$1"
+  local recipe_dir="$bb_recipes_dir"/"$recipe_name"
 
-      echo '' >&2
-    done
+  if [[ ! -d "$recipe_dir" ]]; then
+    error "Recipe '$recipe_name' does not exist!"
+    return 1
+  fi
 
-    # Source all dependency environment variables.
-    _load_dependency_vars || return 1
+  if [[ ! -s "${recipe_dir}/build.sh" ]]; then
+    error "Recipe '$recipe_name' exists, but 'build.sh' is missing!"
+    return 1
   fi
 
   return 0
@@ -574,33 +573,20 @@ function _build_dependencies() {
 function run_build() {
   local recipe_name="$1"
 
-  local this_recipe_dir="$bb_recipes_dir"/"$recipe_name"
-  if [[ ! -d "$this_recipe_dir" ]]; then
-    error "Recipe '$recipe_name' does not exist!"
-    return 1
-  fi
-  if [[ ! -s "${this_recipe_dir}/build.sh" ]]; then
-    error "Recipe '$recipe_name' exists, but 'build.sh' is missing!"
-    return 1
-  fi
+  check_recipe_exists "$recipe_name" || return 1
+  # TODO: validate the recipe
 
-  # If we are not rebuilding, we check if this depconf directory exists.  If it
-  # does, then we know that this build has already been run, and thus we can
-  # skip everything.
+  local this_recipe_dir="$bb_recipes_dir"/"$recipe_name"
   local srcdir="$bb_base_dir"/"$recipe_name"
   local depdir="$BBUILD_DEPCONF_DIR"/"$recipe_name"
-  # TODO: proper logic for rebuilding!
-  #if [[ -d "$depdir" ]]; then
-  #  # Exists.  We're done!
-  #  info "Not rebuilding recipe: $recipe_name"
-  #  return 0
-  #fi
-  #
-  ## We're rebuilding, so we need to blow away the source and dep directories
-  ## and then remake them.
-  #debug "Cleaning source and dep dirs: $srcdir $depdir"
-  #rm -rf "$srcdir"
-  #rm -rf "$depdir"
+
+  # Check if the depconf directory exists.  If we're not rebuilding
+  # dependencies, then this directory existing indicates that the build has
+  # been previously completed, and we can skip this build.
+  if [[ -d "$depdir" ]]; then
+    info "Not rebuilding recipe '$recipe_name'"
+    return 0
+  fi
 
   mkdir -p "$srcdir" || return 1
   mkdir -p "$depdir" || return 1
@@ -616,8 +602,7 @@ function run_build() {
     debug "Recipe path = ${this_recipe_dir}"
     source "$this_recipe_dir/build.sh"
 
-    # Build dependencies
-    #_build_dependencies || exit 1
+    # Get variables from dependencies.
     if [[ ${dependencies:-} ]]; then
       # Source all dependency environment variables.
       _load_dependency_vars || return 1
@@ -825,11 +810,17 @@ function run_self() {
 
 
 # Given a recipe name, will return the dependencies for that recipe.
+# Run it in a subshell.
 # TODO: real documentation
 function _get_dependencies_one() {
   local recipe="$1"
   local recipe_dir="$bb_recipes_dir"/"$recipe"
 
+  # Set up variables.
+  BBUILD_SOURCE_DIR="$bb_base_dir"/"$recipe"
+  setup_build_environment || exit 1
+
+  # Load dependency recipe.
   source "$recipe_dir/build.sh"
 
   if [[ ${dependencies:-} ]]; then
@@ -841,6 +832,8 @@ function _get_dependencies_one() {
 }
 
 
+# Return the full dependency graph for all deps given in $@
+# TODO: real documentation
 function get_dependencies() {
   local deps
 
@@ -907,13 +900,6 @@ fi
 # Disable colors if stderr isn't a terminal.
 if [[ ! -t 2 ]]; then
   set_colors "off"
-fi
-
-# If our 'special' environment variable is set, it's an indicator that we
-# should start the build for the given recipe.
-if [[ -n "${BBUILD_BUILD_RECIPE:-}" ]]; then
-  start_build "$1"
-  exit $?
 fi
 
 # Default values of variables
@@ -990,28 +976,48 @@ debug "    BBUILD_TARGET_ARCH     = ${BBUILD_TARGET_ARCH}"
 # SIGINT handling - print a nice message
 trap 'die "Aborted by user"' INT
 
+# TODO: clean up depconf directory unless -k is set?
+# NOTE: need to be sure that when we're actually running a build, we blow away
+# the entire build directory (to prevent stale builds/sources/etc.)
+
 # Create necessary directories
 for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_out_dir" "$BBUILD_DEPCONF_DIR"; do
   mkdir -p "$dir" || exit 1
 done
 
+# Calculate the dependency graph
 info "Calculating dependencies..."
-get_dependencies "$@"
+get_dependencies "$@" || exit 1
 
+# This just joins all dependencies with ", "
 declare -r niceorder=$(printf "%s, " "${bb_dependency_order[@]}" | cut -d "," -f 1-${#bb_dependency_order[@]})
 debug "Building libraries in the order: $niceorder"
+
+# If we're rebuilding, we blow away the build and depconf directories for the
+# given dependencies, which will force them to be rebuilt.
+if [[ "$bb_rebuild" == "yes" ]]; then
+  for arg in "${bb_dependency_order[@]}"; do
+
+    debug "Removing build directory: ${bb_base_dir}/${arg}"
+    rm -rf "${bb_base_dir}/${arg}"
+
+    debug "Removing depconf dir: ${BBUILD_DEPCONF_DIR}/${arg}"
+    rm -rf "${BBUILD_DEPCONF_DIR}/${arg}"
+  done
+fi
 
 # Actually build
 for arg in "${bb_dependency_order[@]}"; do
   info "Building: $arg"
 
-  #run_build "$arg"
-  true
+  run_build "$arg"
   if [[ ! $? ]]; then
     debug "Recipe failed - exiting..."
-    break
+    exit 1
   fi
 done
+
+info "Finished building ${#bb_dependency_order[@]} recipes"
 
 
 # vim: set tabstop=2 shiftwidth=2 textwidth=0 expandtab:
