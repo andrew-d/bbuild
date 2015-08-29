@@ -631,7 +631,7 @@ function run_build() {
     if [[ "${binary:-}" == "true" ]]; then
       # Each package should copy files to the output directory.  Need to make
       # this here, since it depends on the version.
-      declare -xr BBUILD_OUT_DIR="$bb_out_dir"/"$recipe_name"/"$pkgver"
+      declare -xr BBUILD_OUT_DIR="$bb_out_dir"/"$recipe_name"/"$pkgver"/"${BBUILD_TARGET_PLATFORM}-${BBUILD_TARGET_ARCH}"
       mkdir -p "$BBUILD_OUT_DIR" || return 1
 
       package || exit 1
