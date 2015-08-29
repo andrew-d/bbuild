@@ -917,6 +917,12 @@ function main() {
     set_colors "off"
   fi
 
+  # Default values of variables
+  bb_base_dir=$(pwd)/build
+  bb_recipes_dir=$(pwd)/recipes
+  bb_out_dir=$(pwd)/out
+  bb_rebuild=yes
+
   # Parse arguments
   while getopts ":a:b:hkmo:p:qr:v" opt; do
     case $opt in
@@ -1050,13 +1056,6 @@ function main() {
 
   info "Finished building ${#bb_dependency_order[@]} recipes"
 }
-
-
-# Default values of variables
-bb_base_dir=$(pwd)/build
-bb_recipes_dir=$(pwd)/recipes
-bb_out_dir=$(pwd)/out
-bb_rebuild=yes
 
 # Call main function
 main "$@"
