@@ -55,6 +55,7 @@ bb_program=${0##*/}
 bb_program_path="$0"
 bb_program_version=0.0.1
 declare -i bb_verbosity=2
+declare -a bb_build_order
 
 # Default variables.
 BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
@@ -616,7 +617,11 @@ function run_build() {
     source "$this_recipe_dir/build.sh"
 
     # Build dependencies
-    _build_dependencies || exit 1
+    #_build_dependencies || exit 1
+    if [[ ${dependencies:-} ]]; then
+      # Source all dependency environment variables.
+      _load_dependency_vars || return 1
+    fi
 
     # Run everything in order.
     fetch || exit 1
@@ -819,6 +824,44 @@ function run_self() {
 }
 
 
+# Given a recipe name, will return the dependencies for that recipe.
+# TODO: real documentation
+function _get_dependencies_one() {
+  local recipe="$1"
+  local recipe_dir="$bb_recipes_dir"/"$recipe"
+
+  source "$recipe_dir/build.sh"
+
+  if [[ ${dependencies:-} ]]; then
+    for dep in "${dependencies[@]}"; do
+      echo "$dep $recipe"
+    done
+    echo
+  fi
+}
+
+
+function get_dependencies() {
+  local deps
+
+  deps=""
+  for dep in "$@"; do
+    local curr_deps
+
+    curr_deps=$(_get_dependencies_one "$dep")
+    deps="$deps $curr_deps"
+  done
+
+  declare -r order=$(echo "$deps" | sed '/^#/d' | tsort)
+  if [[ ! $? ]]; then
+    error "Dependency cycle, halting build"
+    return 1
+  fi
+
+  bb_dependency_order=( $order )
+  return 0
+}
+
 ######################################################################
 # Prints the usage for this script.
 #
@@ -952,11 +995,16 @@ for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_out_dir" "$BBUILD_DEPCONF_DIR"; d
   mkdir -p "$dir" || exit 1
 done
 
+info "Calculating dependencies..."
+get_dependencies "$@"
+info "Dependency list: $(IFS=', '; echo "${bb_dependency_order[@]}")"
+
 # Actually build
-for arg in "$@"; do
+for arg in "${bb_dependency_order[@]}"; do
   info "Building: $arg"
 
-  run_build "$arg"
+  #run_build "$arg"
+  true
   if [[ ! $? ]]; then
     debug "Recipe failed - exiting..."
     break
