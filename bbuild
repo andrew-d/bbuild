@@ -891,16 +891,139 @@ EOF
 }
 
 
-# Only proceed further if we aren't testing.
-if [[ -n "${BBUILD_TESTING:-}" ]]; then
-  # Don't exit, but just return.
-  return 0
-fi
+function main() {
+  # Only proceed further if we aren't testing.
+  if [[ -n "${BBUILD_TESTING:-}" ]]; then
+    # Don't exit, but just return.
+    return 0
+  fi
 
-# Disable colors if stderr isn't a terminal.
-if [[ ! -t 2 ]]; then
-  set_colors "off"
-fi
+  # Disable colors if stderr isn't a terminal.
+  if [[ ! -t 2 ]]; then
+    set_colors "off"
+  fi
+
+  # Parse arguments
+  while getopts ":a:b:hkmo:p:qr:v" opt; do
+    case $opt in
+      a)
+        BBUILD_TARGET_ARCH="$OPTARG"
+        ;;
+      b)
+        bb_base_dir="$OPTARG"
+        ;;
+      h)
+        usage
+        ;;
+      k)
+        bb_rebuild=no
+        ;;
+      m)
+        set_colors "off"
+        ;;
+      o)
+        bb_out_dir="$OPTARG"
+        ;;
+      p)
+        BBUILD_TARGET_PLATFORM="$OPTARG"
+        ;;
+      q)
+        bb_verbosity=$(( bb_verbosity + 1 ))
+        ;;
+      r)
+        bb_recipes_dir="$OPTARG"
+        ;;
+      v)
+        bb_verbosity=$(( bb_verbosity - 1 ))
+        ;;
+      \?)
+        error "Invalid option: -$OPTARG"
+        exit 1
+        ;;
+      :)
+        error "Option -$OPTARG requires an argument."
+        exit 1
+        ;;
+    esac
+  done
+
+  # Remove all flags, just leaving our arguments.
+  shift $((OPTIND - 1))
+
+  # Mark variables as read-only, and compute derived variables
+  readonly bb_base_dir bb_rebuild bb_recipes_dir bb_verbosity
+  readonly BBUILD_TARGET_PLATFORM BBUILD_TARGET_ARCH
+
+  bb_cache_dir="$bb_base_dir"/.cache
+  BBUILD_DEPCONF_DIR="$bb_base_dir"/.depconf
+  readonly bb_cache_dir BBUILD_DEPCONF_DIR
+
+  # Help!
+  debug "Flag parsing finished, have $# packages to build"
+  debug "    bb_base_dir    = ${bb_base_dir}"
+  debug "    bb_cache_dir   = ${bb_cache_dir}"
+  debug "    bb_out_dir     = ${bb_out_dir}"
+  debug "    bb_rebuild     = ${bb_rebuild}"
+  debug "    bb_recipes_dir = ${bb_recipes_dir}"
+  debug "    bb_verbosity   = ${bb_verbosity}"
+  debug "    BBUILD_DEPCONF_DIR     = ${BBUILD_DEPCONF_DIR}"
+  debug "    BBUILD_TARGET_PLATFORM = ${BBUILD_TARGET_PLATFORM}"
+  debug "    BBUILD_TARGET_ARCH     = ${BBUILD_TARGET_ARCH}"
+
+  # SIGINT handling - print a nice message
+  trap 'die "Aborted by user"' INT
+
+  # Create necessary directories
+  for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_out_dir" "$BBUILD_DEPCONF_DIR"; do
+    mkdir -p "$dir" || exit 1
+  done
+
+  # Calculate the dependency graph
+  info "Calculating dependencies..."
+  get_dependencies "$@" || exit 1
+
+  # This just joins all dependencies with ", "
+  declare -r niceorder=$(printf "%s, " "${bb_dependency_order[@]}" | cut -d "," -f 1-${#bb_dependency_order[@]})
+  debug "Building libraries in the order: $niceorder"
+
+  # If we're rebuilding, we blow away the build and depconf directories for the
+  # given dependencies, which will force them to be rebuilt.
+  declare -a clean_recipes=()
+  if [[ "$bb_rebuild" == "yes" ]]; then
+    clean_recipes=( "${bb_dependency_order[@]}" )
+  else
+    # We're not rebuilding, but we do want to clean the directories for all
+    # explicitly-specified recipes, so those will be rebuilt.
+    clean_recipes=( "$@" )
+  fi
+
+  # Actually do the cleaning.
+  local rbasedir rdepdir
+  for arg in "${clean_recipes[@]}"; do
+    rbasedir="${bb_base_dir}/${arg}"
+    rdepdir="${BBUILD_DEPCONF_DIR}/${arg}"
+
+    debug "Removing build directory: $rbasedir"
+    rm -rf "$rbasedir"
+
+    debug "Removing depconf dir: $rdepdir"
+    rm -rf "$rdepdir"
+  done
+
+  # Actually build
+  for arg in "${bb_dependency_order[@]}"; do
+    info "Building: $arg"
+
+    run_build "$arg"
+    if [[ ! $? ]]; then
+      debug "Recipe failed - exiting..."
+      exit 1
+    fi
+  done
+
+  info "Finished building ${#bb_dependency_order[@]} recipes"
+}
+
 
 # Default values of variables
 bb_base_dir=$(pwd)/build
@@ -908,116 +1031,9 @@ bb_recipes_dir=$(pwd)/recipes
 bb_out_dir=$(pwd)/out
 bb_rebuild=yes
 
-# Parse arguments
-while getopts ":a:b:hkmo:p:qr:v" opt; do
-  case $opt in
-    a)
-      BBUILD_TARGET_ARCH="$OPTARG"
-      ;;
-    b)
-      bb_base_dir="$OPTARG"
-      ;;
-    h)
-      usage
-      ;;
-    k)
-      bb_rebuild=no
-      ;;
-    m)
-      set_colors "off"
-      ;;
-    o)
-      bb_out_dir="$OPTARG"
-      ;;
-    p)
-      BBUILD_TARGET_PLATFORM="$OPTARG"
-      ;;
-    q)
-      bb_verbosity=$(( bb_verbosity + 1 ))
-      ;;
-    r)
-      bb_recipes_dir="$OPTARG"
-      ;;
-    v)
-      bb_verbosity=$(( bb_verbosity - 1 ))
-      ;;
-    \?)
-      error "Invalid option: -$OPTARG"
-      exit 1
-      ;;
-    :)
-      error "Option -$OPTARG requires an argument."
-      exit 1
-      ;;
-  esac
-done
-
-# Remove all flags, just leaving our arguments.
-shift $((OPTIND - 1))
-
-# Mark variables as read-only, and compute derived variables
-readonly bb_base_dir bb_rebuild bb_recipes_dir bb_verbosity
-readonly BBUILD_TARGET_PLATFORM BBUILD_TARGET_ARCH
-declare -r bb_cache_dir="$bb_base_dir"/.cache
-declare -r BBUILD_DEPCONF_DIR="$bb_base_dir"/.depconf
-
-# Help!
-debug "Flag parsing finished, have $# packages to build"
-debug "    bb_base_dir    = ${bb_base_dir}"
-debug "    bb_cache_dir   = ${bb_cache_dir}"
-debug "    bb_out_dir     = ${bb_out_dir}"
-debug "    bb_rebuild     = ${bb_rebuild}"
-debug "    bb_recipes_dir = ${bb_recipes_dir}"
-debug "    bb_verbosity   = ${bb_verbosity}"
-debug "    BBUILD_DEPCONF_DIR     = ${BBUILD_DEPCONF_DIR}"
-debug "    BBUILD_TARGET_PLATFORM = ${BBUILD_TARGET_PLATFORM}"
-debug "    BBUILD_TARGET_ARCH     = ${BBUILD_TARGET_ARCH}"
-
-# SIGINT handling - print a nice message
-trap 'die "Aborted by user"' INT
-
-# TODO: clean up depconf directory unless -k is set?
-# NOTE: need to be sure that when we're actually running a build, we blow away
-# the entire build directory (to prevent stale builds/sources/etc.)
-
-# Create necessary directories
-for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_out_dir" "$BBUILD_DEPCONF_DIR"; do
-  mkdir -p "$dir" || exit 1
-done
-
-# Calculate the dependency graph
-info "Calculating dependencies..."
-get_dependencies "$@" || exit 1
-
-# This just joins all dependencies with ", "
-declare -r niceorder=$(printf "%s, " "${bb_dependency_order[@]}" | cut -d "," -f 1-${#bb_dependency_order[@]})
-debug "Building libraries in the order: $niceorder"
-
-# If we're rebuilding, we blow away the build and depconf directories for the
-# given dependencies, which will force them to be rebuilt.
-if [[ "$bb_rebuild" == "yes" ]]; then
-  for arg in "${bb_dependency_order[@]}"; do
-
-    debug "Removing build directory: ${bb_base_dir}/${arg}"
-    rm -rf "${bb_base_dir}/${arg}"
-
-    debug "Removing depconf dir: ${BBUILD_DEPCONF_DIR}/${arg}"
-    rm -rf "${BBUILD_DEPCONF_DIR}/${arg}"
-  done
-fi
-
-# Actually build
-for arg in "${bb_dependency_order[@]}"; do
-  info "Building: $arg"
-
-  run_build "$arg"
-  if [[ ! $? ]]; then
-    debug "Recipe failed - exiting..."
-    exit 1
-  fi
-done
-
-info "Finished building ${#bb_dependency_order[@]} recipes"
+# Call main function
+main "$@"
+exit $?
 
 
 # vim: set tabstop=2 shiftwidth=2 textwidth=0 expandtab:
