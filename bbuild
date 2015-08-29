@@ -997,7 +997,9 @@ done
 
 info "Calculating dependencies..."
 get_dependencies "$@"
-info "Dependency list: $(IFS=', '; echo "${bb_dependency_order[@]}")"
+
+declare -r niceorder=$(printf "%s, " "${bb_dependency_order[@]}" | cut -d "," -f 1-${#bb_dependency_order[@]})
+debug "Building libraries in the order: $niceorder"
 
 # Actually build
 for arg in "${bb_dependency_order[@]}"; do
