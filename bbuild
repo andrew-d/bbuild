@@ -837,6 +837,10 @@ function _get_dependencies_one() {
   # Load dependency recipe.
   source "$recipe_dir/build.sh"
 
+  # The recipe depends on itself (this ensures that if we only have one recipe
+  # with no dependencies, it gets output.
+  echo "$recipe $recipe"
+
   if [[ ${dependencies:-} ]]; then
     for dep in "${dependencies[@]}"; do
       echo "$dep $recipe"
