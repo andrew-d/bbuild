@@ -55,6 +55,7 @@ bb_program=${0##*/}
 bb_program_path="$0"
 bb_program_version=0.0.1
 declare -i bb_verbosity=2
+declare -a bb_build_order
 
 # Default variables.
 BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
@@ -512,6 +513,11 @@ function _load_dependency_vars() {
       env_vars=$(find "$BBUILD_DEPCONF_DIR"/"$dep" -type f -print0 | xargs -0 -n1 basename)
 
       for var in $env_vars; do
+        # Skip dotfiles
+        if [[ $var == .* ]]; then
+          continue
+        fi
+
         var_file="$BBUILD_DEPCONF_DIR"/"$dep"/"$var"
 
         # The ${!var} syntax says 'read the environment variable with the
@@ -527,30 +533,29 @@ function _load_dependency_vars() {
 
 
 ######################################################################
-# Helper function that builds all dependencies.
-# MUST BE RUN WITHIN THE RECIPE CONTEXT.
+# Checks whether the given recipe exists.
 #
 # Globals:
-#   $dependencies   = dependencies of this recipe
+#   $bb_recipes_dir = the recipes directory
 #
 # Arguments:
-#   None
+#   $1 = recipe name to check
 #
 # Returns:
-#   0 on success, 1 on failure
+#   0 if it exists, 1 otherwise
 ######################################################################
-function _build_dependencies() {
-  if [[ ${dependencies:-} ]]; then
-    # Build all dependencies.
-    for dep in "${dependencies[@]}"; do
-      info "Building dependency: $dep"
-      run_self "$dep" || return 1
+function check_recipe_exists() {
+  local recipe_name="$1"
+  local recipe_dir="$bb_recipes_dir"/"$recipe_name"
 
-      echo '' >&2
-    done
+  if [[ ! -d "$recipe_dir" ]]; then
+    error "Recipe '$recipe_name' does not exist!"
+    return 1
+  fi
 
-    # Source all dependency environment variables.
-    _load_dependency_vars || return 1
+  if [[ ! -s "${recipe_dir}/build.sh" ]]; then
+    error "Recipe '$recipe_name' exists, but 'build.sh' is missing!"
+    return 1
   fi
 
   return 0
@@ -573,33 +578,20 @@ function _build_dependencies() {
 function run_build() {
   local recipe_name="$1"
 
-  local this_recipe_dir="$bb_recipes_dir"/"$recipe_name"
-  if [[ ! -d "$this_recipe_dir" ]]; then
-    error "Recipe '$recipe_name' does not exist!"
-    return 1
-  fi
-  if [[ ! -s "${this_recipe_dir}/build.sh" ]]; then
-    error "Recipe '$recipe_name' exists, but 'build.sh' is missing!"
-    return 1
-  fi
+  check_recipe_exists "$recipe_name" || return 1
+  # TODO: validate the recipe
 
-  # If we are not rebuilding, we check if this depconf directory exists.  If it
-  # does, then we know that this build has already been run, and thus we can
-  # skip everything.
+  local this_recipe_dir="$bb_recipes_dir"/"$recipe_name"
   local srcdir="$bb_base_dir"/"$recipe_name"
   local depdir="$BBUILD_DEPCONF_DIR"/"$recipe_name"
-  # TODO: proper logic for rebuilding!
-  #if [[ -d "$depdir" ]]; then
-  #  # Exists.  We're done!
-  #  info "Not rebuilding recipe: $recipe_name"
-  #  return 0
-  #fi
-  #
-  ## We're rebuilding, so we need to blow away the source and dep directories
-  ## and then remake them.
-  #debug "Cleaning source and dep dirs: $srcdir $depdir"
-  #rm -rf "$srcdir"
-  #rm -rf "$depdir"
+
+  # Check if the depconf directory exists.  If we're not rebuilding
+  # dependencies, then this directory existing indicates that the build has
+  # been previously completed, and we can skip this build.
+  if [[ -d "$depdir" ]]; then
+    info "Not rebuilding recipe '$recipe_name'"
+    return 0
+  fi
 
   mkdir -p "$srcdir" || return 1
   mkdir -p "$depdir" || return 1
@@ -615,8 +607,11 @@ function run_build() {
     debug "Recipe path = ${this_recipe_dir}"
     source "$this_recipe_dir/build.sh"
 
-    # Build dependencies
-    _build_dependencies || exit 1
+    # Get variables from dependencies.
+    if [[ ${dependencies:-} ]]; then
+      # Source all dependency environment variables.
+      _load_dependency_vars || return 1
+    fi
 
     # Run everything in order.
     fetch || exit 1
@@ -645,6 +640,7 @@ function run_build() {
     fi
 
     info "Finished building: $recipe_name"
+    touch "${depdir}/.build-complete"
     exit 0
   )
 
@@ -819,6 +815,52 @@ function run_self() {
 }
 
 
+# Given a recipe name, will return the dependencies for that recipe.
+# Run it in a subshell.
+# TODO: real documentation
+function _get_dependencies_one() {
+  local recipe="$1"
+  local recipe_dir="$bb_recipes_dir"/"$recipe"
+
+  # Set up variables.
+  BBUILD_SOURCE_DIR="$bb_base_dir"/"$recipe"
+  setup_build_environment || exit 1
+
+  # Load dependency recipe.
+  source "$recipe_dir/build.sh"
+
+  if [[ ${dependencies:-} ]]; then
+    for dep in "${dependencies[@]}"; do
+      echo "$dep $recipe"
+    done
+    echo
+  fi
+}
+
+
+# Return the full dependency graph for all deps given in $@
+# TODO: real documentation
+function get_dependencies() {
+  local deps
+
+  deps=""
+  for dep in "$@"; do
+    local curr_deps
+
+    curr_deps=$(_get_dependencies_one "$dep")
+    deps="$deps $curr_deps"
+  done
+
+  declare -r order=$(echo "$deps" | sed '/^#/d' | tsort)
+  if [[ ! $? ]]; then
+    error "Dependency cycle, halting build"
+    return 1
+  fi
+
+  bb_dependency_order=( $order )
+  return 0
+}
+
 ######################################################################
 # Prints the usage for this script.
 #
@@ -855,23 +897,152 @@ EOF
 }
 
 
-# Only proceed further if we aren't testing.
-if [[ -n "${BBUILD_TESTING:-}" ]]; then
-  # Don't exit, but just return.
-  return 0
-fi
+function main() {
+  # Only proceed further if we aren't testing.
+  if [[ -n "${BBUILD_TESTING:-}" ]]; then
+    # Don't exit, but just return.
+    return 0
+  fi
 
-# Disable colors if stderr isn't a terminal.
-if [[ ! -t 2 ]]; then
-  set_colors "off"
-fi
+  # Disable colors if stderr isn't a terminal.
+  if [[ ! -t 2 ]]; then
+    set_colors "off"
+  fi
 
-# If our 'special' environment variable is set, it's an indicator that we
-# should start the build for the given recipe.
-if [[ -n "${BBUILD_BUILD_RECIPE:-}" ]]; then
-  start_build "$1"
-  exit $?
-fi
+  # Parse arguments
+  while getopts ":a:b:hkmo:p:qr:v" opt; do
+    case $opt in
+      a)
+        BBUILD_TARGET_ARCH="$OPTARG"
+        ;;
+      b)
+        bb_base_dir="$OPTARG"
+        ;;
+      h)
+        usage
+        ;;
+      k)
+        bb_rebuild=no
+        ;;
+      m)
+        set_colors "off"
+        ;;
+      o)
+        bb_out_dir="$OPTARG"
+        ;;
+      p)
+        BBUILD_TARGET_PLATFORM="$OPTARG"
+        ;;
+      q)
+        bb_verbosity=$(( bb_verbosity + 1 ))
+        ;;
+      r)
+        bb_recipes_dir="$OPTARG"
+        ;;
+      v)
+        bb_verbosity=$(( bb_verbosity - 1 ))
+        ;;
+      \?)
+        error "Invalid option: -$OPTARG"
+        exit 1
+        ;;
+      :)
+        error "Option -$OPTARG requires an argument."
+        exit 1
+        ;;
+    esac
+  done
+
+  # Remove all flags, just leaving our arguments.
+  shift $((OPTIND - 1))
+
+  # Mark variables as read-only, and compute derived variables
+  readonly bb_base_dir bb_rebuild bb_recipes_dir bb_verbosity
+  readonly BBUILD_TARGET_PLATFORM BBUILD_TARGET_ARCH
+
+  bb_cache_dir="$bb_base_dir"/.cache
+  BBUILD_DEPCONF_DIR="$bb_base_dir"/.depconf
+  readonly bb_cache_dir BBUILD_DEPCONF_DIR
+
+  # Help!
+  debug "Flag parsing finished, have $# packages to build"
+  debug "    bb_base_dir    = ${bb_base_dir}"
+  debug "    bb_cache_dir   = ${bb_cache_dir}"
+  debug "    bb_out_dir     = ${bb_out_dir}"
+  debug "    bb_rebuild     = ${bb_rebuild}"
+  debug "    bb_recipes_dir = ${bb_recipes_dir}"
+  debug "    bb_verbosity   = ${bb_verbosity}"
+  debug "    BBUILD_DEPCONF_DIR     = ${BBUILD_DEPCONF_DIR}"
+  debug "    BBUILD_TARGET_PLATFORM = ${BBUILD_TARGET_PLATFORM}"
+  debug "    BBUILD_TARGET_ARCH     = ${BBUILD_TARGET_ARCH}"
+
+  # SIGINT handling - print a nice message
+  trap 'die "Aborted by user"' INT
+
+  # Create necessary directories
+  for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_out_dir" "$BBUILD_DEPCONF_DIR"; do
+    mkdir -p "$dir" || exit 1
+  done
+
+  # Calculate the dependency graph
+  info "Calculating dependencies..."
+  get_dependencies "$@" || exit 1
+
+  # This just joins all dependencies with ", "
+  declare -r niceorder=$(printf "%s, " "${bb_dependency_order[@]}" | cut -d "," -f 1-${#bb_dependency_order[@]})
+  debug "Building libraries in the order: $niceorder"
+
+  # If we're rebuilding, we blow away the build and depconf directories for the
+  # given dependencies, which will force them to be rebuilt.
+  declare -a clean_recipes=()
+  if [[ "$bb_rebuild" == "yes" ]]; then
+    clean_recipes=( "${bb_dependency_order[@]}" )
+  else
+    # We're not rebuilding, but we do want to clean the directories for all
+    # explicitly-specified recipes, so those will be rebuilt.
+    clean_recipes=( "$@" )
+
+    # Also, clean all recipes that don't have the 'build succeeded' flag set.
+    for arg in "${bb_dependency_order[@]}"; do
+      # If the depconf directory doesn't exist, no need to clean.
+      if [[ ! -d "${BBUILD_DEPCONF_DIR}/${arg}" ]]; then
+        continue
+      fi
+
+      if [[ ! -e "${BBUILD_DEPCONF_DIR}/${arg}/.build-complete" ]]; then
+        warn "Cleaning recipe '$arg' since a previous build did not complete"
+        clean_recipes=( "${clean_recipes[@]}" "${arg}" )
+      fi
+    done
+  fi
+
+  # Actually do the cleaning.
+  local rbasedir rdepdir
+  for arg in "${clean_recipes[@]}"; do
+    rbasedir="${bb_base_dir}/${arg}"
+    rdepdir="${BBUILD_DEPCONF_DIR}/${arg}"
+
+    debug "Removing build directory: $rbasedir"
+    rm -rf "$rbasedir"
+
+    debug "Removing depconf dir: $rdepdir"
+    rm -rf "$rdepdir"
+  done
+
+  # Actually build
+  for arg in "${bb_dependency_order[@]}"; do
+    info "Building: $arg"
+
+    run_build "$arg"
+    if [[ ! $? ]]; then
+      debug "Recipe failed - exiting..."
+      exit 1
+    fi
+  done
+
+  info "Finished building ${#bb_dependency_order[@]} recipes"
+}
+
 
 # Default values of variables
 bb_base_dir=$(pwd)/build
@@ -879,89 +1050,9 @@ bb_recipes_dir=$(pwd)/recipes
 bb_out_dir=$(pwd)/out
 bb_rebuild=yes
 
-# Parse arguments
-while getopts ":a:b:hkmo:p:qr:v" opt; do
-  case $opt in
-    a)
-      BBUILD_TARGET_ARCH="$OPTARG"
-      ;;
-    b)
-      bb_base_dir="$OPTARG"
-      ;;
-    h)
-      usage
-      ;;
-    k)
-      bb_rebuild=no
-      ;;
-    m)
-      set_colors "off"
-      ;;
-    o)
-      bb_out_dir="$OPTARG"
-      ;;
-    p)
-      BBUILD_TARGET_PLATFORM="$OPTARG"
-      ;;
-    q)
-      bb_verbosity=$(( bb_verbosity + 1 ))
-      ;;
-    r)
-      bb_recipes_dir="$OPTARG"
-      ;;
-    v)
-      bb_verbosity=$(( bb_verbosity - 1 ))
-      ;;
-    \?)
-      error "Invalid option: -$OPTARG"
-      exit 1
-      ;;
-    :)
-      error "Option -$OPTARG requires an argument."
-      exit 1
-      ;;
-  esac
-done
-
-# Remove all flags, just leaving our arguments.
-shift $((OPTIND - 1))
-
-# Mark variables as read-only, and compute derived variables
-readonly bb_base_dir bb_rebuild bb_recipes_dir bb_verbosity
-readonly BBUILD_TARGET_PLATFORM BBUILD_TARGET_ARCH
-declare -r bb_cache_dir="$bb_base_dir"/.cache
-declare -r BBUILD_DEPCONF_DIR="$bb_base_dir"/.depconf
-
-# Help!
-debug "Flag parsing finished, have $# packages to build"
-debug "    bb_base_dir    = ${bb_base_dir}"
-debug "    bb_cache_dir   = ${bb_cache_dir}"
-debug "    bb_out_dir     = ${bb_out_dir}"
-debug "    bb_rebuild     = ${bb_rebuild}"
-debug "    bb_recipes_dir = ${bb_recipes_dir}"
-debug "    bb_verbosity   = ${bb_verbosity}"
-debug "    BBUILD_DEPCONF_DIR     = ${BBUILD_DEPCONF_DIR}"
-debug "    BBUILD_TARGET_PLATFORM = ${BBUILD_TARGET_PLATFORM}"
-debug "    BBUILD_TARGET_ARCH     = ${BBUILD_TARGET_ARCH}"
-
-# SIGINT handling - print a nice message
-trap 'die "Aborted by user"' INT
-
-# Create necessary directories
-for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_out_dir" "$BBUILD_DEPCONF_DIR"; do
-  mkdir -p "$dir" || exit 1
-done
-
-# Actually build
-for arg in "$@"; do
-  info "Building: $arg"
-
-  run_build "$arg"
-  if [[ ! $? ]]; then
-    debug "Recipe failed - exiting..."
-    break
-  fi
-done
+# Call main function
+main "$@"
+exit $?
 
 
 # vim: set tabstop=2 shiftwidth=2 textwidth=0 expandtab:

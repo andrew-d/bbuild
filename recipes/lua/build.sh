@@ -13,9 +13,13 @@ sources=(
     "linit.patch"
 
     "luafilesystem-${_luafilesystem_version}.tar.gz::https://github.com/keplerproject/luafilesystem/archive/${_luafilesystem_version}.tar.gz"
-    "http://webserver2.tecgraf.puc-rio.br/~lhf/ftp/lua/5.2/lcomplex.tar.gz"
-    'http://www.inf.puc-rio.br/~roberto/lpeg/lpeg-0.12.2.tar.gz'
     "luasocket-${_luasocket_version}.tar.gz::https://github.com/diegonehab/luasocket/archive/${_luasocket_version}.tar.gz"
+
+    # From: http://webserver2.tecgraf.puc-rio.br/~lhf/ftp/lua/5.2/lcomplex.tar.gz
+    "lcomplex.tar.gz"
+
+    # From: http://www.inf.puc-rio.br/~roberto/lpeg/lpeg-0.12.2.tar.gz
+    "lpeg-0.12.2.tar.gz"
 )
 sums=(
     "b9e2e4aad6789b3b63a056d442f7b39f0ecfca3ae0f1fc0ae4e9614401b69f4b"
@@ -24,9 +28,9 @@ sums=(
     "SKIP"
 
     "5d3493fc12905baa336a32d31fb339a0338eb5c0c28433602ae537ee7083def1"
+    "8d294306a0865037cf9c93f492aab7a8bd0dd3b685af4cd99b8430f4eaad1933"
     "46f5086b4d5098db53adff90fd701b794dc8531abdea9b8cbda1d42789e21259"
     "6aad270b91d1b1c6fd75f68e162329a04a644e50e917d55f46cc8384b7120004"
-    "8d294306a0865037cf9c93f492aab7a8bd0dd3b685af4cd99b8430f4eaad1933"
 )
 
 library=false
