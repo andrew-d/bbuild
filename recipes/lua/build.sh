@@ -166,19 +166,22 @@ function build() {
         LDFLAGS="${LDFLAGS/-l$v/ }"
     done
 
-    local platform
+    local SYSCFLAGS SYSLIBS SYSLDFLAGS
     case "${BBUILD_TARGET_PLATFORM}" in
         linux|android)
-            platform=linux
+            SYSCFLAGS="-DLUA_USE_LINUX"
+            SYSLIBS="-Wl,-E -ldl -lreadline"
             ;;
         darwin)
-            platform=macosx
+            SYSCFLAGS="-DLUA_USE_MACOSX"
+            SYSLIBS="-lreadline"
             ;;
         windows)
-            platform=mingw
+            # TODO: finish me
+            error "Building Lua for Windows doesn't work yet"
             ;;
         *)
-            error "Don't know how to build lua for platform: ${BBUILD_TARGET_PLATFORM}"
+            error "Don't know how to build Lua for platform: ${BBUILD_TARGET_PLATFORM}"
             return 1
             ;;
     esac
@@ -200,15 +203,18 @@ function build() {
     #   - win32 bindings?
     #   - sqlite3
     info2 "Building lua"
-    make \
+    make -C "$_builddir"/src \
         CC="${CC}" \
         RANLIB="${RANLIB}" \
         AR="${AR} rcu " \
         MYCFLAGS="${BBUILD_STATIC_FLAGS} ${CFLAGS:-}" \
-        MYLDFLAGS="${BBUILD_STATIC_FLAGS} ${LDFLAGS}" \
+        MYLDFLAGS="${BBUILD_STATIC_FLAGS} ${LDFLAGS:-}" \
         MYLIBS=-lncurses \
         MYOBJS="${_lib_objs[*]}" \
-        PLAT="${platform}" \
+        SYSCFLAGS="${SYSCFLAGS:-}" \
+        SYSLDFLAGS="${SYSLDFLAGS:-}" \
+        SYSLIBS="${SYSLIBS:-}" \
+        all \
         || return 1
 }
 
