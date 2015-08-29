@@ -26,6 +26,7 @@ dependencies=()
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
+_destdir="${BBUILD_SOURCE_DIR}/dest"
 
 
 # Prepare the build.
@@ -66,9 +67,15 @@ function build() {
         || return 1
 
     make || return 1
+
+    # We need to install our header files somewhere that we can point at.
+    make \
+        DESTDIR="$_destdir" \
+        install.libs install.includes \
+        || return 1
 }
 
 function setup_env() {
-    echo "-I${_builddir}"               > "$depdir"/CPPFLAGS
-    echo "-L${_builddir}/lib -lncurses" > "$depdir"/LDFLAGS
+    echo "-I${_destdir}/usr/include"       > "$depdir"/CPPFLAGS
+    echo "-L${_destdir}/usr/lib -lncurses" > "$depdir"/LDFLAGS
 }
