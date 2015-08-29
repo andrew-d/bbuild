@@ -329,9 +329,17 @@ function default_fetch() {
 
       if is_remote "$src"; then
         url=$(url_from_source "$src")
-        fetch_url "$url" "$bb_cache_dir"/"$filename" || return 1
+
+        # Only fetch the given URL if it doesn't exist in our cache.
+        if [[ ! -e "$bb_cache_dir"/"$filename" ]]; then
+          fetch_url "$url" "$bb_cache_dir"/"$filename" || return 1
+        else
+          info2 "Skipping - already downloaded"
+        fi
+
         ln -sf "$bb_cache_dir"/"$filename" "$target_dir"/ || return 1
       else
+        info2 "Source is local"
         ln -sf "$recipe_dir/$src" "$target_dir"/ || return 1
       fi
     fi
