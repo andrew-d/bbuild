@@ -1069,7 +1069,7 @@ function main() {
     fi
   done
 
-  info "Finished building ${#bb_dependency_order[@]} recipes"
+  info "Finished building ${#bb_dependency_order[@]} recipe(s)"
 }
 
 # Call main function
