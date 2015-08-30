@@ -10,7 +10,7 @@ sums=(
 )
 
 library=true
-binary=false
+binary=true
 
 dependencies=()
 
@@ -54,23 +54,36 @@ function build() {
         darwin-x86)
             target="darwin-i386-cc"
             ;;
+        windows-x86_64)
+            target="mingw64"
+            ;;
         *)
             error "cannot build openssl for platform/arch: ${BBUILD_TARGET_PLATFORM}-${BBUILD_TARGET_ARCH}"
             return 1
             ;;
     esac
 
+    CC="${CC} ${BBUILD_STATIC_FLAGS}" \
     CFLAGS="${BBUILD_STATIC_FLAGS}" \
     CXXFLAGS="${BBUILD_STATIC_FLAGS}" \
+    LDFLAGS="${BBUILD_STATIC_FLAGS}" \
     perl ./Configure \
         no-shared \
         enable-ec_nistp_64_gcc_12 \
         "$target" \
         || return 1
 
-
-    make build_libs || return 1
+    make build_libs build_apps || return 1
 }
+
+
+function package() {
+    cd "$_builddir"
+
+    cp "apps/openssl${BBUILD_BINARY_EXT}" "$BBUILD_OUT_DIR"/"openssl${BBUILD_BINARY_EXT}"
+    ${STRIP} "$BBUILD_OUT_DIR"/"openssl${BBUILD_BINARY_EXT}"
+}
+
 
 function setup_env() {
     echo "-I${_builddir}/include"        > "$depdir"/CPPFLAGS
