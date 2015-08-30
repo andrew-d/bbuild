@@ -22,15 +22,15 @@ function build() {
         ${BBUILD_STATIC_FLAGS} \
         -O3 \
         -DUNIX \
-        -o xxd \
+        -o "xxd${BBUILD_BINARY_EXT}" \
         xxd.c \
         || return 1
 }
 
 
 function package() {
-cd "$BBUILD_SOURCE_DIR"
+    cd "$BBUILD_SOURCE_DIR"
 
-    cp xxd "$BBUILD_OUT_DIR"/xxd
-    ${STRIP} "$BBUILD_OUT_DIR"/xxd
+    cp "xxd${BBUILD_BINARY_EXT}" "$BBUILD_OUT_DIR"/"xxd${BBUILD_BINARY_EXT}"
+    ${STRIP} "$BBUILD_OUT_DIR"/"xxd${BBUILD_BINARY_EXT}"
 }
