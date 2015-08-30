@@ -864,14 +864,27 @@ function _get_dependencies_one() {
   source "$recipe_dir/build.sh"
 
   # The recipe depends on itself (this ensures that if we only have one recipe
-  # with no dependencies, it gets output.
+  # with no dependencies, it gets output).
   echo "$recipe $recipe"
 
   if [[ ${dependencies:-} ]]; then
     for dep in "${dependencies[@]}"; do
       echo "$dep $recipe"
     done
-    echo
+
+    # For each dependency, we run a subshell that fetches THOSE dependencies,
+    # and so on.
+    for dep in "${dependencies[@]}"; do
+      local subdeps
+
+      debug "Recursing to dependency: $dep"
+      subdeps=$(_get_dependencies_one "$dep")
+      if [[ ! $? ]]; then
+        exit 1
+      fi
+
+      echo "$subdeps"
+    done
   fi
 
   exit 0
