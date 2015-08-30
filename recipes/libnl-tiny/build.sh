@@ -36,7 +36,7 @@ function build() {
         ALL_LIBS=libnl-tiny.a \
         CC="${CC}" \
         AR="${AR}" \
-        CFLAGS=-static \
+        CFLAGS="${BBUILD_STATIC_FLAGS}" \
         all \
         || return 1
 }

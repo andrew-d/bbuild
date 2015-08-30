@@ -12,7 +12,14 @@ sums=(
 library=true
 binary=false
 
-dependencies=("libnl-tiny")
+case "${BBUILD_TARGET_PLATFORM}" in
+    linux|android)
+        dependencies=("libnl-tiny")
+        ;;
+    *)
+        dependencies=()
+        ;;
+esac
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
@@ -21,18 +28,35 @@ _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
 function build() {
     cd "$_builddir"
 
-    CC="${CC} -static" \
+    local pcapty
+    case "${BBUILD_TARGET_PLATFORM}" in
+        linux|android)
+            pcapty=linux
+            ;;
+        darwin)
+            pcapty=bpf
+            ;;
+        *)
+            error "Don't know what pcap type to use for platform: ${BBUILD_TARGET_PLATFORM}"
+            return 1
+            ;;
+    esac
+
+    CC="${CC} ${BBUILD_STATIC_FLAGS}" \
     CFLAGS="${CFLAGS:-} -D_GNU_SOURCE -D_BSD_SOURCE -DIPPROTO_HOPOPTS=0" \
     ./configure \
-        --disable-canusb \
-        --with-pcap=linux \
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
+        --disable-shared \
+        --enable-ipv6 \
+        --disable-universal \
+        --with-pcap="${pcapty}" \
         LD="${LD}" \
         || return 1
 
     make libpcap.a || return 1
 }
+
 
 function setup_env() {
     echo "-I${_builddir}"        > "$depdir"/CPPFLAGS

@@ -12,7 +12,7 @@ sums=(
 library=false
 binary=true
 
-dependencies=("libpcap")
+dependencies=("libpcap" "openssl")
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
@@ -21,15 +21,15 @@ _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
 function build() {
     cd "$_builddir"
 
-    CC="${CC} -static" \
+    CC="${CC} ${BBUILD_STATIC_FLAGS}" \
     CPPFLAGS="-D_GNU_SOURCE -D_BSD_SOURCE ${CPPFLAGS:-}" \
-    LDFLAGS="-static ${LDFLAGS:-}" \
+    LDFLAGS="${BBUILD_STATIC_FLAGS} ${LDFLAGS:-}" \
     LIBS='-lpcap' \
     ./configure \
-        --without-crypto \
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
-        ac_cv_linux_vers=3 \
+        --enable-ipv6 \
+        --disable-universal \
         || return 1
 
     make || return 1
