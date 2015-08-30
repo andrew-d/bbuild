@@ -64,6 +64,7 @@ function build() {
         --without-ada \
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
+        --prefix=/usr \
         || return 1
 
     make || return 1
