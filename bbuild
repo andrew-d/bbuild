@@ -35,6 +35,7 @@ set -u              # Attempting to use an undefined variable will print an
 # | bb_out_dir             | Output directory for final build products   |
 # | bb_recipes_dir         | Directory that contains all recipes         |
 # | bb_rebuild             | Should we rebuild dependencies              |
+# | bb_have_build_env      | Have we already set up our build environ?   |
 # +------------------------+---------------------------------------------+
 # | BBUILD_SOURCE_DIR      | Per-recipe directory that contains sources  |
 # | BBUILD_CROSS_PREFIX    | Cross-compilation prefix                    |
@@ -56,6 +57,7 @@ bb_program_path="$0"
 bb_program_version=0.0.1
 declare -i bb_verbosity=2
 declare -a bb_build_order
+bb_have_build_env=
 
 # Default variables.
 BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
@@ -724,6 +726,10 @@ function setup_env() {
 #   0 on success, 1 on failure
 ######################################################################
 function setup_build_environment() {
+  if [[ -n "$bb_have_build_env" ]]; then
+    return 0
+  fi
+
   BBUILD_BINARY_EXT=
   case "${BBUILD_TARGET_PLATFORM}-${BBUILD_TARGET_ARCH}" in
     linux-x86_64)
@@ -776,6 +782,8 @@ function setup_build_environment() {
     export CXX="${BBUILD_CROSS_PREFIX}-clang++"
     declare -xr OSXCROSS_NO_INCLUDE_PATH_WARNINGS=1
   fi
+
+  bb_have_build_env=yes
 }
 
 
