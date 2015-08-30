@@ -829,9 +829,21 @@ function run_self() {
 }
 
 
+######################################################################
 # Given a recipe name, will return the dependencies for that recipe.
-# Run it in a subshell.
-# TODO: real documentation
+# Run this in a subshell.
+#
+# Globals:
+#   $bb_base_dir    = the build directory
+#   $bb_recipes_dir = the recipe directory
+#
+# Arguments:
+#   $1 = recipe name
+#
+# Returns:
+#   0 on success, 1 on failure
+#   Echos each dependency in the form 'dependency input-recipe\n'
+######################################################################
 function _get_dependencies_one() {
   local recipe="$1"
   local recipe_dir="$bb_recipes_dir"/"$recipe"
@@ -858,8 +870,19 @@ function _get_dependencies_one() {
 }
 
 
+######################################################################
 # Return the full dependency graph for all deps given in $@
-# TODO: real documentation
+#
+# Globals:
+#   $bb_dependency_order = order of dependencies (output)
+#
+# Arguments:
+#   $@ = one or more recipes
+#
+# Returns:
+#   0 on success, 1 on failure
+#   Sets $bb_dependency_order to the array of dependencies
+######################################################################
 function get_dependencies() {
   local deps
 
@@ -888,10 +911,12 @@ function get_dependencies() {
 # Prints the usage for this script.
 #
 # Globals:
-#   $bb_program         = the name of this script
-#   $bb_program_version = our version
-#   $bb_base_dir        = the build directory
-#   $bb_recipes_dir     = the recipe directory
+#   $bb_program             = the name of this script
+#   $bb_program_version     = our version
+#   $bb_base_dir            = the build directory
+#   $bb_recipes_dir         = the recipe directory
+#   $BBUILD_TARGET_ARCH     = target architecture
+#   $BBUILD_TARGET_PLATFORM = target platform
 #
 # Arguments:
 #   None
@@ -920,6 +945,18 @@ EOF
 }
 
 
+######################################################################
+# Prints the usage for this script.
+#
+# Globals:
+#   Everything
+#
+# Arguments:
+#   $@ = program arguments
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
 function main() {
   # Only proceed further if we aren't testing.
   if [[ -n "${BBUILD_TESTING:-}" ]]; then
