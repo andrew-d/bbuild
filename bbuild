@@ -724,6 +724,7 @@ function setup_env() {
 #   0 on success, 1 on failure
 ######################################################################
 function setup_build_environment() {
+  BBUILD_BINARY_EXT=
   case "${BBUILD_TARGET_PLATFORM}-${BBUILD_TARGET_ARCH}" in
     linux-x86_64)
       BBUILD_CROSS_PREFIX=x86_64-linux-musl
@@ -737,15 +738,20 @@ function setup_build_environment() {
     darwin-x86_64)
       BBUILD_CROSS_PREFIX=x86_64-apple-darwin12
       ;;
+    windows-x86_64)
+      BBUILD_CROSS_PREFIX=x86_64-w64-mingw32
+      BBUILD_BINARY_EXT=.exe
+      ;;
     *)
       error "Cannot determine cross prefix for ${BBUILD_TARGET_PLATFORM}/${BBUILD_TARGET_ARCH}"
       return 1
   esac
   debug "BBUILD_CROSS_PREFIX = $BBUILD_CROSS_PREFIX"
+  debug "BBUILD_BINARY_EXT   = $BBUILD_BINARY_EXT"
 
   # Make everything readonly
   readonly BBUILD_HOST_PLATFORM BBUILD_HOST_ARCH
-  readonly BBUILD_CROSS_PREFIX
+  readonly BBUILD_CROSS_PREFIX BBUILD_BINARY_EXT
 
   # Set up build tools with prefixes
   export AR="${BBUILD_CROSS_PREFIX}-ar"
@@ -847,6 +853,8 @@ function _get_dependencies_one() {
     done
     echo
   fi
+
+  exit 0
 }
 
 
@@ -860,6 +868,9 @@ function get_dependencies() {
     local curr_deps
 
     curr_deps=$(_get_dependencies_one "$dep")
+    if [[ ! $? ]]; then
+      return 1
+    fi
     deps="$deps $curr_deps"
   done
 
@@ -962,11 +973,11 @@ function main() {
         ;;
       \?)
         error "Invalid option: -$OPTARG"
-        exit 1
+        return 1
         ;;
       :)
         error "Option -$OPTARG requires an argument."
-        exit 1
+        return 1
         ;;
     esac
   done
@@ -999,12 +1010,12 @@ function main() {
 
   # Create necessary directories
   for dir in "$bb_base_dir" "$bb_cache_dir" "$bb_out_dir" "$BBUILD_DEPCONF_DIR"; do
-    mkdir -p "$dir" || exit 1
+    mkdir -p "$dir" || return 1
   done
 
   # Calculate the dependency graph
   info "Calculating dependencies..."
-  get_dependencies "$@" || exit 1
+  get_dependencies "$@" || return 1
 
   # This just joins all dependencies with ", "
   declare -r niceorder=$(printf "%s, " "${bb_dependency_order[@]}" | cut -d "," -f 1-${#bb_dependency_order[@]})
@@ -1054,7 +1065,7 @@ function main() {
     run_build "$arg"
     if [[ ! $? ]]; then
       debug "Recipe failed - exiting..."
-      exit 1
+      return 1
     fi
   done
 
