@@ -33,6 +33,7 @@ function build() {
     CXX="${CXX} ${BBUILD_STATIC_FLAGS}" \
     AR="${AR}" \
     CFLAGS="${BBUILD_STATIC_FLAGS} ${CFLAGS:-}" \
+    CXXFLAGS="${BBUILD_STATIC_FLAGS} ${CXXFLAGS:-}" \
     ./configure \
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
