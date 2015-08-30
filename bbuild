@@ -780,7 +780,7 @@ function setup_build_environment() {
   if [[ "$BBUILD_TARGET_PLATFORM" = "darwin" ]]; then
     export CC="${BBUILD_CROSS_PREFIX}-clang"
     export CXX="${BBUILD_CROSS_PREFIX}-clang++"
-    declare -xr OSXCROSS_NO_INCLUDE_PATH_WARNINGS=1
+    export OSXCROSS_NO_INCLUDE_PATH_WARNINGS=1
   fi
 
   bb_have_build_env=yes
