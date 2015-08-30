@@ -38,7 +38,6 @@ function build() {
 function package() {
     cd "$_builddir"
 
-    cp pv "$BBUILD_OUT_DIR"/pv
-    ${STRIP} "$BBUILD_OUT_DIR"/pv
+    cp "pv${BBUILD_BINARY_EXT}" "$BBUILD_OUT_DIR"/"pv${BBUILD_BINARY_EXT}"
+    ${STRIP} "$BBUILD_OUT_DIR"/"pv${BBUILD_BINARY_EXT}"
 }
-
