@@ -22,21 +22,27 @@ _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
 function build() {
     cd "$_builddir"
 
-    CHOST=${BBUILD_CROSS_PREFIX} \
-    CFLAGS=${BBUILD_STATIC_FLAGS} \
-    CC="${CC} ${BBUILD_STATIC_FLAGS}" \
-    ./configure \
-		--static
+    if [[ "$BBUILD_TARGET_PLATFORM" = "windows" ]]; then
+        make -f win32/Makefile.gcc \
+            PREFIX="${BBUILD_CROSS_PREFIX}-" \
+            libz.a \
+            || return 1
+    else
+        CHOST=${BBUILD_CROSS_PREFIX} \
+        CFLAGS=${BBUILD_STATIC_FLAGS} \
+        CC="${CC} ${BBUILD_STATIC_FLAGS}" \
+        ./configure --static || return 1
 
-    if [[ "${BBUILD_TARGET_PLATFORM}" = "darwin" ]]; then
-		info2 "Fixing AR path"
-        sed -i \
-            -e "s|AR=/usr/bin/libtool|AR=${AR}|g" \
-            -e 's|ARFLAGS=-o|ARFLAGS=rc|g' \
-			Makefile
+        if [[ "${BBUILD_TARGET_PLATFORM}" = "darwin" ]]; then
+            info2 "Fixing AR path"
+            sed -i \
+                -e "s|AR=/usr/bin/libtool|AR=${AR}|g" \
+                -e 's|ARFLAGS=-o|ARFLAGS=rc|g' \
+                Makefile
+        fi
+
+        make || return 1
     fi
-
-    make || return 1
 }
 
 function setup_env() {
