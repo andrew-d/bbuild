@@ -649,6 +649,10 @@ function run_build() {
       setup_env || exit 1
     fi
 
+    # Set additional information.
+    echo "${pkgver}" > "$depdir"/.version
+    echo "${BBUILD_SOURCE_DIR}" > "$depdir"/.source-dir
+
     info "Finished building: $recipe_name"
     touch "${depdir}/.build-complete"
     exit 0
