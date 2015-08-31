@@ -30,8 +30,7 @@ function build() {
             SYSCFLAGS="-DLUA_USE_MACOSX"
             ;;
         windows)
-            # TODO: finish me
-            error "Building Lua for Windows doesn't work yet"
+            # Do nothing
             ;;
         *)
             error "Don't know how to build Lua for platform: ${BBUILD_TARGET_PLATFORM}"

@@ -87,6 +87,7 @@ function build() {
         windows)
             # TODO: finish me
             error "Building Lua for Windows doesn't work yet"
+            return 1
             ;;
         *)
             error "Don't know how to build Lua for platform: ${BBUILD_TARGET_PLATFORM}"
