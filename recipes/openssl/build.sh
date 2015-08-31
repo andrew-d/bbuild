@@ -80,12 +80,20 @@ function build() {
 function package() {
     cd "$_builddir"
 
-    cp "apps/openssl${BBUILD_BINARY_EXT}" "$BBUILD_OUT_DIR"/"openssl${BBUILD_BINARY_EXT}"
-    ${STRIP} "$BBUILD_OUT_DIR"/"openssl${BBUILD_BINARY_EXT}"
+    strip_helper \
+        "apps/openssl${BBUILD_BINARY_EXT}" \
+        "${BBUILD_OUT_DIR}/openssl${BBUILD_BINARY_EXT}"
 }
 
 
 function setup_env() {
-    echo "-I${_builddir}/include"        > "$depdir"/CPPFLAGS
-    echo "-L${_builddir} -lssl -lcrypto" > "$depdir"/LDFLAGS
+    echo "-I${_builddir}/include" > "$depdir"/CPPFLAGS
+
+    # Windows requires `-lgdi32`
+    local libs
+    libs="-lssl -lcrypto"
+    if [[ "$BBUILD_TARGET_PLATFORM" = "windows" ]]; then
+        libs="$libs -lgdi32"
+    fi
+    echo "-L${_builddir} ${libs}" > "$depdir"/LDFLAGS
 }
