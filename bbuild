@@ -639,6 +639,7 @@ function run_build() {
       declare -xr BBUILD_OUT_DIR="$bb_out_dir"/"$recipe_name"/"$pkgver"/"${BBUILD_TARGET_PLATFORM}-${BBUILD_TARGET_ARCH}"
       mkdir -p "$BBUILD_OUT_DIR" || return 1
 
+      info "Running package()"
       package || exit 1
     fi
 
@@ -646,6 +647,8 @@ function run_build() {
       # Each package should create a environment variable files under
       # $BBUILD_DEP_DIR
       declare -xr BBUILD_DEP_DIR="$depdir"
+
+      info "Running setup_env()"
       setup_env || exit 1
     fi
 
@@ -931,6 +934,40 @@ function get_dependencies() {
   bb_dependency_order=( $order )
   return 0
 }
+
+
+######################################################################
+# Copies a given file to a temporary directory, strips it, and then
+# moves it to the output location given.
+#
+# Globals:
+#   $STRIP = the strip program
+#
+# Arguments:
+#   $1 = input file
+#   $2 = output location
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
+function strip_helper() {
+  declare -r src="$1"
+  declare -r dst="$2"
+
+  declare -r fname=$(basename "$src")
+
+  debug "Copying ${1} to /tmp/$fname"
+  cp "$1" /tmp/"$fname" || return 1
+
+  debug "Stripping /tmp/$fname"
+  ${STRIP} /tmp/"$fname" || return 1
+
+  debug "Moving /tmp/$fname to $dst"
+  mv /tmp/"$fname" "$dst" || return 1
+
+  return 0
+}
+
 
 ######################################################################
 # Prints the usage for this script.
