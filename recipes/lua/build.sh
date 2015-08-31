@@ -161,8 +161,10 @@ function build() {
 function package() {
     cd "$_builddir"
 
-    cp src/lua "$BBUILD_OUT_DIR"/lua
-    ${STRIP} "$BBUILD_OUT_DIR"/lua
+    for f in lua luac; do
+        cp src/"$f" "$BBUILD_OUT_DIR"/"$f"
+        ${STRIP} "$BBUILD_OUT_DIR"/"$f"
+    done
 }
 
 # Helper that runs and prints something
