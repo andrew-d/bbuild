@@ -87,5 +87,5 @@ function package() {
 
 function setup_env() {
     echo "-I${_builddir}/include"        > "$depdir"/CPPFLAGS
-    echo "-L${_builddir} -lcrypto -lssl" > "$depdir"/LDFLAGS
+    echo "-L${_builddir} -lssl -lcrypto" > "$depdir"/LDFLAGS
 }
