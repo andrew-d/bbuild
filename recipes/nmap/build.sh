@@ -267,13 +267,4 @@ function _build_windows() {
     _patch_makefile_vars || return 1
     make ncat || return 1
     return 0
-
-    # Don't build or configure libpcre.
-
-    _patch_makefile_vars || return 1
-    _fix_libpcre || return 1
-
-    # Do the real build.
-    info2 "Building for real"
-    make || return 1
 }
