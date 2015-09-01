@@ -4,12 +4,10 @@ pkgver="0.7.1"
 
 sources=(
     "https://downloads.sourceforge.net/project/netcat/netcat/${pkgver}/netcat-${pkgver}.tar.gz"
-    "config.sub"
     "fix-unsigned.patch"
 )
 sums=(
     "30719c9a4ffbcf15676b8f528233ccc54ee6cba96cb4590975f5fd60c68a066f"
-    "f4cf53ff68e5b9c3437a1e7ad3086c4c669136caebd721ffc58ef21944bd395a"
     "669907b1ff0671dc97eb3ab43dd7fe6f8c810599fd905d432c9a702783109d29"
 )
 
@@ -35,7 +33,7 @@ function prepare() {
         esac
     done
 
-    cp "$BBUILD_SOURCE_DIR"/config.sub . || return 1
+    replace_config_sub || return 1
 }
 
 

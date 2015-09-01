@@ -53,7 +53,7 @@ set -u              # Attempting to use an undefined variable will print an
 
 # Global script information.
 bb_program=${0##*/}
-bb_program_path="$0"
+bb_program_path=$(readlink -e "$0")
 bb_program_version=0.0.1
 declare -i bb_verbosity=2
 declare -a bb_build_order
@@ -966,6 +966,36 @@ function strip_helper() {
   mv /tmp/"$fname" "$dst" || return 1
 
   return 0
+}
+
+
+######################################################################
+# Replaces all files named 'config.sub' in this directory and all
+# subdirectories with the latest config.sub.
+#
+# Globals:
+#   $bb_program_path = this program's path
+#   $CWD             = the current directory
+#
+# Arguments:
+#   None
+#
+# Returns:
+#   0 on success, 1 on failure
+######################################################################
+function replace_config_sub() {
+  declare -r program_dir=$(dirname "$bb_program_path")
+  declare -r replacement_file="$program_dir"/util/config.sub
+
+  debug "replacement_file = $replacement_file"
+
+  if [[ ! -f "$replacement_file" ]]; then
+    error "Cannot find util/config.sub!"
+    return 1
+  fi
+
+  find . -name config.sub -exec cp "${replacement_file}" {} \;
+  return $?
 }
 
 

@@ -4,7 +4,6 @@ pkgver="1.14"
 
 sources=(
     "http://ftp.gnu.org/pub/gnu/libiconv/libiconv-${pkgver}.tar.gz"
-    "config.sub"
     "libiconv-1.14_srclib_stdio.in.h-remove-gets-declarations.patch"
     "libiconv-build-fixes.patch"
     "patch-Makefile.devel.patch"
@@ -13,7 +12,6 @@ sources=(
 )
 sums=(
     "72b24ded17d687193c3366d0ebe7cde1e6b18f0df8c55438ac95be39e8a30613"
-    "f4cf53ff68e5b9c3437a1e7ad3086c4c669136caebd721ffc58ef21944bd395a"
     "6fe0a9de9f6ac224239ad5aa943f23f856a8dbec38f4313c8cd2b48a6a399906"
     "08a9b2a5904c9798247093943ab92b2810404e84cea966d7b9d4976295e2b595"
     "ad9b6da1a82fc4de27d6f7086a3382993a0b16153bc8e8a23d7b5f9334ca0a42"
@@ -54,7 +52,7 @@ function prepare() {
     sed -i '/cd preload && /d' Makefile.in || return 1
 
     info2 "Fixing config.sub"
-    find . -name config.sub -exec cp "$BBUILD_SOURCE_DIR"/config.sub {} \;
+    replace_config_sub || return 1
 }
 
 
