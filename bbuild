@@ -987,8 +987,6 @@ function replace_config_sub() {
   declare -r program_dir=$(dirname "$bb_program_path")
   declare -r replacement_file="$program_dir"/util/config.sub
 
-  debug "replacement_file = $replacement_file"
-
   if [[ ! -f "$replacement_file" ]]; then
     error "Cannot find util/config.sub!"
     return 1
