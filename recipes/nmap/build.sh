@@ -19,13 +19,14 @@ fi
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
-_openssl_version="$(cat "$BBUILD_DEPCONF_DIR"/openssl/.version)"
-_openssl_dir="$(cat "$BBUILD_DEPCONF_DIR"/openssl/.source-dir)"
-_openssl_dir="$_openssl_dir"/"openssl-${_openssl_version}"
 
 
 function prepare() {
     cd "$_builddir"
+
+    _openssl_version="$(cat "$BBUILD_DEPCONF_DIR"/openssl/.version)"
+    _openssl_dir="$(cat "$BBUILD_DEPCONF_DIR"/openssl/.source-dir)"
+    _openssl_dir="$_openssl_dir"/"openssl-${_openssl_version}"
 
     if [[ "$BBUILD_TARGET_PLATFORM" = "windows" ]]; then
         # Need to append `-lgdi32` to all instances of OPENSSL_LIBS
