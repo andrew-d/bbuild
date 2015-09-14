@@ -518,13 +518,29 @@ function unpack() {
 function _load_dependency_vars() {
   local env_vars var_file dep
 
-  if [[ ${bb_dependency_order:-} ]]; then
+  # Fetch the recursive dependency tree for this package.  We don't use
+  # bb_dependency_order since that contains the global ordering (i.e. the
+  # ordering for all packages that will be built), which includes dependencies
+  # of other packages, etc.
+  declare -r curr_deps=$(_get_dependencies_one "$pkgname")
+  if [[ ! $? ]]; then
+    return 1
+  fi
+
+  declare -r order=$(echo "$curr_deps" | sed '/^#/d' | tsort)
+  if [[ ! $? ]]; then
+    error "Dependency cycle, halting build (this should never happen!)"
+    return 1
+  fi
+
+  declare -a order_arr=( $order )
+  if [[ ${order_arr:-} ]]; then
     # This is irritating, but: gcc resolves libraries from left to right, which
     # essentially means that the library that needs symbols must be first, then
     # the library that resolves the symbol.  We need to reverse our build order
     # so the library flags are in the right order.
-    for (( idx=${#bb_dependency_order[@]}-1 ; idx>=0 ; idx-- )) ; do
-      dep="${bb_dependency_order[idx]}"
+    for (( idx=${#order_arr[@]}-1 ; idx>=0 ; idx-- )) ; do
+      dep="${order_arr[idx]}"
 
       # Skip the recipe we're building
       if [[ $dep == $pkgname ]]; then
