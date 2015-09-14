@@ -12,7 +12,7 @@ sums=(
 library=false
 binary=true
 
-dependencies=("zlib")
+dependencies=("zlib" "curl" "expat")
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
@@ -35,6 +35,25 @@ function build() {
 
     make configure || return 1
 
+    # Remove '-lfoo' flags from LDFLAGS and store in LIBS.
+    declare -a myLIBS=()
+    declare -a myLDFLAGS=()
+    declare -a ldArr=(${LDFLAGS:-})
+
+    for flag in "${ldArr[@]}"; do
+        if [[ $flag == -l* ]]; then
+            myLIBS+=("$flag")
+        else
+            myLDFLAGS+=("$flag")
+        fi
+    done
+
+    export LDFLAGS="${myLDFLAGS[*]}"
+    export LIBS="${myLIBS[*]}"
+
+    debug "new LDFLAGS: ${LDFLAGS}"
+    debug "new LIBS: ${LIBS}"
+
     # We need to explicitly provide two values for the configure script, since
     # it attempts to run a program otherwise, which doesn't work when cross-
     # compiling.
@@ -49,7 +68,9 @@ function build() {
         ac_cv_snprintf_returns_bogus=no \
         || return 1
 
-    make || return 1
+    make \
+        EXTLIBS="${LIBS}" \
+        || return 1
 
     mkdir -p "$_destdir" || return 1
     make install DESTDIR="$_destdir" || return 1
@@ -59,16 +80,43 @@ function build() {
 function package() {
     cd "$_destdir"
 
-    # These are binaries
-    for f in git git-receive-pack git-shell git-upload-archive git-upload-pack; do
-        strip_helper \
-            "usr/bin/${f}${BBUILD_BINARY_EXT}" \
-            "$BBUILD_OUT_DIR"/ \
-            || return 1
+    # Things in ${prefix}/bin
+    for f in usr/bin/*; do
+        _maybe_strip "$f" "$BBUILD_OUT_DIR"/ || return 1
     done
 
-    # These are scripts (perl or shell)
-    for f in git-cvsserver gitk; do
-        cp "usr/bin/$f" "$BBUILD_OUT_DIR/" || return 1
+    # Everything in our libexec directory
+    mkdir -p "$BBUILD_OUT_DIR/exec-path" || return 1
+    for f in usr/libexec/git-core/*; do
+        # Skip mergetools
+        if [[ $f == *mergetools ]]; then
+            continue
+        fi
+
+        _maybe_strip "$f" "$BBUILD_OUT_DIR/exec-path/" || return 1
     done
+
+    # Copy the mergetools directory
+    cp -r usr/libexec/git-core/mergetools "$BBUILD_OUT_DIR/exec-path/" || return 1
+}
+
+
+function _maybe_strip() {
+    declare -r src="$1"
+    declare -r dst="$2"
+
+    # `-s` is true if the file exists and is larger than 0 bytes.
+    if [[ ! -s "$src" ]]; then
+        error "File does not exist: $src"
+        return 1
+    fi
+
+    declare -r info=$(file "$src" 2>&1)
+    if [[ $info == *"statically linked"* ]]; then
+        strip_helper "$src" "$dst" || return 1
+    else
+        cp "$src" "$dst" || return 1
+    fi
+
+    return 0
 }
