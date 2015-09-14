@@ -50,4 +50,49 @@ things that I will probably not be adding:
 - ruby
 
 
+## Known Bugs and Notes
+
+## file
+
+You need to pass the correct magic database to file - one is provided named
+`magic.mgc`.  Run `file` as such: `file -m /path/to/magic.mgc myfile.foo`.
+
+### Git
+
+You must provide the `--exec-path` option to Git to tell it where the various
+binaries it needs are.  This should point to the subdirectory `exec-path` that
+is produced as part of the build.
+
+You may need to explicitly configure the CA certificate location for git to be
+able to clone HTTPS repositories:
+
+    git config --global http.sslCAinfo /etc/ssl/certs/ca-certificates.crt
+
+If you don't have a CA certificate bundle, or you can't install one, you can
+get one from the curl website at: http://curl.haxx.se/docs/caextract.html
+
+### ht
+
+On Linux, the appropriate terminal information must be present.  On some
+versions of Linux (e.g. Debian Jessie), the information may be in a different
+place - you can use the `TERMINFO` environment variable to specify the correct
+location: `TERMINFO=/lib/terminfo ./ht`
+
+### nmap
+
+In order to do script scans, Nmap must know where the various Lua files live.
+You can do this by setting the `NMAPDIR` environment variable:
+
+    NMAPDIR=/usr/share/nmap nmap -vvv -A www.target.com`
+
+### Python
+
+You must run Python using the following command:
+
+    PYTHONPATH=/path/to/python2.7.zip python -sS
+
+Note: `sqlite` isn't currently supported.  Adding this is an ongoing TODO of
+mine.
+
+
 [1]: https://github.com/andrew-d/static-binaries
