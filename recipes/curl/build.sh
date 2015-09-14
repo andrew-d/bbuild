@@ -12,7 +12,7 @@ sums=(
 library=true
 binary=true
 
-dependencies=("openssl" "zlib" "libssh2")
+dependencies=("openssl" "zlib" "libssh2" "libidn")
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
