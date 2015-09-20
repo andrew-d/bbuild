@@ -78,10 +78,11 @@ get one from the curl website at: http://curl.haxx.se/docs/caextract.html
 
 ### nmap
 
-In order to do script scans, Nmap must know where the various Lua files live.
-You can do this by setting the `NMAPDIR` environment variable:
+In order to do OS scans, service detection, script scans, etc., Nmap must
+know where the various data files live.  You can do this by setting the
+`NMAPDIR` environment variable:
 
-    NMAPDIR=/usr/share/nmap nmap -vvv -A www.target.com`
+    NMAPDIR=/path/to/datadir nmap -vvv -A www.target.com
 
 ### Python
 
