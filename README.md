@@ -72,13 +72,6 @@ able to clone HTTPS repositories:
 If you don't have a CA certificate bundle, or you can't install one, you can
 get one from the curl website at: http://curl.haxx.se/docs/caextract.html
 
-### ht
-
-On Linux, the appropriate terminal information must be present.  On some
-versions of Linux (e.g. Debian Jessie), the information may be in a different
-place - you can use the `TERMINFO` environment variable to specify the correct
-location: `TERMINFO=/lib/terminfo ./ht`
-
 ### nmap
 
 In order to do script scans, Nmap must know where the various Lua files live.

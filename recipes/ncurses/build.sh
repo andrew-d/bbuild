@@ -52,6 +52,8 @@ function prepare() {
 function build() {
     cd "$_builddir"
 
+    # Note: we pass an additional list of terminfo directories to the configure
+    # script that should contain all possible terminfo locations.
     CFLAGS="${BBUILD_STATIC_FLAGS}" \
     CXXFLAGS="${BBUILD_STATIC_FLAGS}" \
     ./configure \
@@ -63,6 +65,8 @@ function build() {
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
         --prefix=/usr \
+        --with-default-terminfo-dir=/usr/share/terminfo \
+        --with-terminfo-dirs="/etc/terminfo:/lib/terminfo:/usr/share/terminfo:/usr/lib/terminfo" \
         || return 1
 
     make || return 1
