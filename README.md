@@ -91,8 +91,5 @@ You must run Python using the following command:
 
     PYTHONPATH=/path/to/python2.7.zip python -sS
 
-Note: `sqlite` isn't currently supported.  Adding this is an ongoing TODO of
-mine.
-
 
 [1]: https://github.com/andrew-d/static-binaries
