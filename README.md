@@ -48,6 +48,7 @@ because they need dynamic linking, or other issues.  Here's a short list of
 things that I will probably not be adding:
 
 - ruby
+- GNU screen (doesn't really support cross compiling)
 
 
 ## Known Bugs and Notes
