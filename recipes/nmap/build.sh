@@ -118,6 +118,22 @@ function package() {
             "${BBUILD_OUT_DIR}/${fname}${BBUILD_BINARY_EXT}" \
             || return 1
     done
+
+    # Copy data files to the data dir.
+    mkdir -p "${BBUILD_OUT_DIR}/datadir" || return 1
+    for f in nmap-services nmap-payloads nmap-rpc \
+             nmap-os-db nmap-service-probes \
+             nmap-protocols nmap-mac-prefixes \
+             nse_main.lua;
+    do
+        cp "$f" "${BBUILD_OUT_DIR}/datadir/" || return 1
+    done
+
+    # Copy Lua library/scripts directories
+    for d in nselib scripts;
+    do
+        cp -r "$d" "${BBUILD_OUT_DIR}/datadir/" || return 1
+    done
 }
 
 
