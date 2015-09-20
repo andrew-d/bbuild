@@ -4,7 +4,7 @@
 
 This repository contains `bbuild` a pseudo-package manager that is designed to
 help with building statically-linked binaries of various tools.  It's an
-extension of the work that I started over in my [static-binaries][1]
+extension of the work that I started over in my [static-binaries][sb]
 repository, except as a proper tool rather than a bunch of shell scripts.
 
 
@@ -21,10 +21,14 @@ the correct toolchains installed.  A summary can be found below:
 |  Linux   |     arm      |    yes     | `andrewd/musl-cross-arm` |
 |  Darwin  |     x86      |    no      |                          |
 |  Darwin  |    x86_64    |    yes     | `andrewd/osxcross`       |
+|  Windows<sup>1</sup> |     x86      |    no      |                          |
+|  Windows<sup>1</sup> |    x86_64    |    yes     | `andrewd/mingw-w64`      |
 
+<sub>1 - Most tools will not compile properly on Windows.  Buyer beware,
+your mileage may vary, etc.</sub>
 
 To actually use the tool, clone this repository and do the following inside the
-resulting directory:
+resulting directory (the `$` prompt is the host, `#` is inside the container):
 
 ```
 $ docker run --rm -t -i -v `pwd`:/make CONTAINER_NAME /bin/bash
@@ -53,7 +57,7 @@ things that I will probably not be adding:
 
 ## Known Bugs and Notes
 
-## file
+### file
 
 You need to pass the correct magic database to file - one is provided named
 `magic.mgc`.  Run `file` as such: `file -m /path/to/magic.mgc myfile.foo`.
@@ -86,4 +90,4 @@ You must run Python using the following command:
     PYTHONPATH=/path/to/python2.7.zip python -sS
 
 
-[1]: https://github.com/andrew-d/static-binaries
+[sb]: https://github.com/andrew-d/static-binaries
