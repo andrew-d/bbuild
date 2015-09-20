@@ -12,7 +12,7 @@ sums=(
 library=false
 binary=true
 
-dependencies=("zlib" "openssl" "readline" "termcap")
+dependencies=("zlib" "openssl" "readline" "termcap" "sqlite")
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/Python-$pkgver"
@@ -25,8 +25,6 @@ function prepare() {
         error "Don't currently support cross-compiling to Darwin"
         return 1
     fi
-
-    _setup_modules || return 1
 
     cat <<EOF > config.site
 ac_cv_file__dev_ptmx=no
@@ -41,8 +39,8 @@ function build() {
     # Needed for cross-compilation.
     export CONFIG_SITE=$(pwd)/config.site
 
-    info2 "Building Python for host"
-    CC= CXX= LD= AR= RANLIB= CFLAGS= CPPFLAGS= LDFLAGS= \
+    info2 "Building 'pgen' binary for host"
+    CC= CXX= LD= AR= RANLIB= CFLAGS= CXXFLAGS= CPPFLAGS= LDFLAGS= \
     ./configure || return 1
     make Parser/pgen || return 1
 
@@ -66,6 +64,9 @@ function build() {
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
         || return 1
+
+    # Edit Makefile to add the appropriate #define for sqlite3 module.
+    _fix_sqlite3_define || return 1
 
     # Build pgen...
     make Parser/pgen || return 1
@@ -121,6 +122,7 @@ function _setup_modules() {
         "termios" "time" "unicodedata" "zlib"
     )
 
+    info2 "Enabling modules"
     local mod
     for mod in "${modules[@]}";
     do
@@ -140,10 +142,55 @@ function _setup_modules() {
     declare -r termcap_flags="$(cat "$BBUILD_DEPCONF_DIR"/termcap/CPPFLAGS) $(cat "$BBUILD_DEPCONF_DIR"/termcap/LDFLAGS)"
     declare -r openssl_flags="$(cat "$BBUILD_DEPCONF_DIR"/openssl/CPPFLAGS) $(cat "$BBUILD_DEPCONF_DIR"/openssl/LDFLAGS)"
 
+    info2 "Setting dependency paths"
     sed -i \
         -e "s|^zlib zlibmodule.c|zlib zlibmodule.c ${zlib_flags}|" \
         -e "s|^readline readline.c|readline readline.c ${readline_flags} ${termcap_flags}|" \
         -e "s|^.*_ssl _ssl.c.*$|_ssl _ssl.c -DUSE_SSL ${openssl_flags}|" \
         Modules/Setup \
+        || return 1
+
+    # Set up sqlite
+    _setup_sqlite3 || return 1
+}
+
+
+function _setup_sqlite3() {
+    info2 "Fixing sqlite"
+
+    # Find the include path.
+    declare -r sqlite_cppflags=$(cat "$BBUILD_DEPCONF_DIR"/sqlite/CPPFLAGS)
+    declare -r sqlite_ldflags=$(cat "$BBUILD_DEPCONF_DIR"/sqlite/LDFLAGS)
+
+    debug "sqlite_cppflags = $sqlite_cppflags"
+    debug "sqlite_ldflags = $sqlite_ldflags"
+
+    local sqlite
+
+    # Note: for some stupid reason, the `makesetup` script that Python uses
+    # assumes that any line containing an `=` is supposed to be a Makefile
+    # definition.  We need to omit those.
+    sqlite="_sqlite3 "
+    sqlite+=$(find Modules/_sqlite/ -name '*.c' | sed 's|Modules/||g')
+    sqlite+=' -DSQLITE_OMIT_LOAD_EXTENSION '
+    sqlite+=" -I\$(srcdir)/Modules/_sqlite $sqlite_cppflags "
+    sqlite+=" $sqlite_ldflags "
+
+    # Remove newlines, then replace multiple spaces with a single one
+    sqlite=$(echo "$sqlite" | tr '\n' ' ' | tr -s ' ')
+
+    debug "sqlite = $sqlite"
+    echo "$sqlite" >> Modules/Setup || return 1
+}
+
+
+function _fix_sqlite3_define() {
+    info2 "Fixing sqlite3 #define"
+
+    # As per the comment about `=`, above, we need to manually set the
+    # appropriate #define in the Makefile.
+    sed -i \
+        -e '/$(srcdir)\/Modules\/_sqlite/ s/$/ -DMODULE_NAME=\\"sqlite3\\"/' \
+        Makefile \
         || return 1
 }
