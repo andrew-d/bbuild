@@ -16,6 +16,7 @@ dependencies=()
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
+_destdir="$BBUILD_SOURCE_DIR/dest"
 
 
 function build() {
@@ -38,6 +39,7 @@ function build() {
             ;;
     esac
 
+    # Build just the library...
     make -C "$_builddir"/src \
         CC="${CC}" \
         RANLIB="${RANLIB}" \
@@ -47,10 +49,20 @@ function build() {
         SYSCFLAGS="${SYSCFLAGS:-}" \
         liblua.a \
         || return 1
+
+    # ... but add empty files for the binaries so the install succeeds.
+    touch src/lua src/luac
 }
 
 
 function setup_env() {
-    echo "-I${_builddir}/src"       > "$depdir"/CPPFLAGS
-    echo "-L${_builddir}/src -llua" > "$depdir"/LDFLAGS
+    cd "$_builddir"
+
+    # Install into our destination directory
+    mkdir -p "$_destdir" || return 1
+    make install INSTALL_TOP="$_destdir" || return 1
+
+    # Set the install flags
+    echo "-I${_destdir}/include"   > "$depdir"/CPPFLAGS
+    echo "-L${_destdir}/lib -llua" > "$depdir"/LDFLAGS
 }
