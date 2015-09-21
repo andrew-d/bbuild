@@ -86,9 +86,19 @@ know where the various data files live.  You can do this by setting the
 
 ### Python
 
-You must run Python using the following command:
+You must tell Python where the standard library lives.  Since Python is able to
+import modules from within a ZIP file, a copy has been provided:
 
-    PYTHONPATH=/path/to/python2.7.zip python -sS
+    PYTHONPATH=/path/to/python2.7.zip python
+
+### vim
+
+If using any Python-based plugins, you must pass `PYTHONPATH`, as above.  You
+should also set `VIMRUNTIME` to the location of the vim runtime files (i.e. the
+directory that contains `ftplugin.vim`, the various syntax definitions, etc.).
+A directory containing the runtime files is produced as part of the build.
+
+    PYTHONPATH=/path/to/python2.7.zip VIMRUNTIME=/path/to/runtime ./vim
 
 
 [sb]: https://github.com/andrew-d/static-binaries
