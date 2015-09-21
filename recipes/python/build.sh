@@ -98,7 +98,7 @@ function package() {
 
     # Make ZIP file containing stdlib.  We exclude some common test
     # directories, to reduce the size of the output ZIP file.
-    cd Lib
+    cd "$_builddir"/Lib
     zip -r "${BBUILD_OUT_DIR}"/python27.zip . \
         -x 'bsddb/test*' \
         -x 'ctypes/test*' \
@@ -110,7 +110,14 @@ function package() {
         -x 'lib2to3/tests*' \
         -x 'sqlite3/test*' \
         -x 'test*' \
-        -x 'unittest/test*'
+        -x 'unittest/test*' \
+        || return 1
+
+    # Add the '_sysconfigdata' module
+    cd "$_builddir"/build/lib.* || return 1
+    zip -u "${BBUILD_OUT_DIR}"/python27.zip \
+        _sysconfigdata.py \
+        || return 1
 }
 
 
