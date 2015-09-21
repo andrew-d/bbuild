@@ -9,13 +9,14 @@ sums=(
     "1cd3730781b91caf0fa1c4d472dc29274186480161a150294c42ce9b5c5effc0"
 )
 
-library=false
+library=true
 binary=true
 
 dependencies=("zlib" "openssl" "readline" "termcap" "sqlite")
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/Python-$pkgver"
+_destdir="$BBUILD_SOURCE_DIR/dest"
 
 
 function prepare() {
@@ -54,7 +55,7 @@ function build() {
     # TODO: figure out why we're getting the error:
     #       checking getaddrinfo bug... yes
     # And we can then re-enable IPv6
-    info2 "Doing cross build"
+    info2 "Configuring cross build"
     CFLAGS="${BBUILD_STATIC_FLAGS} ${CFLAGS:-}" \
     CXXFLAGS="${BBUILD_STATIC_FLAGS} ${CXXFLAGS:-}" \
     LDFLAGS="${BBUILD_STATIC_FLAGS} ${LDFLAGS:-}" \
@@ -69,6 +70,7 @@ function build() {
     _fix_sqlite3_define || return 1
 
     # Build pgen...
+    info2 "Building pgen"
     make Parser/pgen || return 1
 
     # ... and copy our host one overtop, 'touch'ing it so it doesn't get
@@ -77,7 +79,13 @@ function build() {
     touch ./Parser/pgen
 
     # Build Python for real
+    info2 "Building Python"
     make python || return 1
+
+    # Install the static library and all headers
+    info2 "Installing library and config"
+    mkdir -p "$_destdir/usr/local/bin" "$_destdir/usr/local/lib" || return 1
+    make libainstall inclinstall DESTDIR="$_destdir" || return 1
 }
 
 
@@ -103,6 +111,12 @@ function package() {
         -x 'sqlite3/test*' \
         -x 'test*' \
         -x 'unittest/test*'
+}
+
+
+function setup_env() {
+    echo "-I${_destdir}/usr/local/include/python2.7"                > "$depdir"/CPPFLAGS
+    echo "-L${_destdir}/usr/local/lib/python2.7/config -lpython2.7" > "$depdir"/LDFLAGS
 }
 
 
