@@ -1,12 +1,12 @@
 pkgname="the_silver_searcher"
 pkgdesc="TODO"
-pkgver="0.30.0"
+pkgver="0.31.0"
 
 sources=(
     "${pkgname}-${pkgver}.tar.gz::https://github.com/ggreer/the_silver_searcher/archive/${pkgver}.tar.gz"
 )
 sums=(
-    "a3b61b80f96647dbe89c7e89a8fa7612545db6fa4a313c0ef8a574d01e7da5db"
+    "61bc827f4557d8108e91cdfc9ba31632e2568b26884c92426417f58135b37da8"
 )
 
 library=false
