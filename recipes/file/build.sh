@@ -36,6 +36,7 @@ function build() {
     autoreconf -i || return 1
 
     info2 "Configuring for native"
+    CC= CXX= LD= AR= RANLIB= CFLAGS= CXXFLAGS= CPPFLAGS= LDFLAGS= \
     ./configure \
         --disable-shared || return 1
 
