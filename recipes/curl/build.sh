@@ -41,7 +41,7 @@ function build() {
 
     # Need to do this irritating dance to get the curl binary linked statically
     cd src
-    rm curl || return 1
+    rm "curl${BBUILD_BINARY_EXT}" || return 1
     make CFLAGS=-all-static || return 1
 }
 

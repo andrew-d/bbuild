@@ -38,7 +38,7 @@ function build() {
     make || return 1
 
     # Need to do this irritating dance to get the binary linked statically
-    rm sqlite3 || return 1
+    rm "sqlite3${BBUILD_BINARY_EXT}" || return 1
     make CFLAGS=-all-static || return 1
 }
 

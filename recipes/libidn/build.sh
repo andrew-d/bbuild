@@ -12,7 +12,7 @@ sums=(
 library=true
 binary=false
 
-dependencies=()
+dependencies=("libiconv")
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
