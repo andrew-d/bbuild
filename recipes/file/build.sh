@@ -1,12 +1,12 @@
 pkgname="file"
 pkgdesc="TODO"
-pkgver="5.24"
+pkgver="5.25"
 
 sources=(
-    "${pkgname}-${pkgver}.tar.gz::https://github.com/file/file/archive/FILE5_24.tar.gz"
+    "${pkgname}-${pkgver}.tar.gz::https://github.com/file/file/archive/FILE${pkgver/./_}.tar.gz"
 )
 sums=(
-    "52e160662c45d8b204c583552d80e4ab389a3a641f9745a458da2f6761c9b206"
+    "5c1c25ad065dbfb1457914462a7d6959502b810d95badbc3cc03f30f74c55e5e"
 )
 
 library=false
@@ -15,7 +15,7 @@ binary=true
 dependencies=()
 
 # Common variables.
-_builddir="$BBUILD_SOURCE_DIR/$pkgname-FILE5_24"
+_builddir="$BBUILD_SOURCE_DIR/$pkgname-FILE${pkgver/./_}"
 
 
 function prepare() {
