@@ -49,18 +49,20 @@ function package() {
 
     strip_helper \
         "apps/openssl/openssl${BBUILD_BINARY_EXT}" \
-        "${BBUILD_OUT_DIR}/openssl${BBUILD_BINARY_EXT}"
+        "${BBUILD_OUT_DIR}/openssl${BBUILD_BINARY_EXT}" \
+        || return 1
 
     if [[ "$BBUILD_TARGET_PLATFORM" != "windows" ]]; then
         strip_helper \
             "apps/nc/nc${BBUILD_BINARY_EXT}" \
-            "${BBUILD_OUT_DIR}/nc${BBUILD_BINARY_EXT}"
+            "${BBUILD_OUT_DIR}/nc${BBUILD_BINARY_EXT}" \
+            || return 1
     fi
 }
 
 
 function setup_env() {
-    echo "-I${_builddir}/include"         > "$depdir"/CPPFLAGS
+    echo "-I${_builddir}/include" > "$depdir"/CPPFLAGS
 
     local ldflags
     for f in crypto ssl tls; do
