@@ -1,12 +1,12 @@
 pkgname="curl"
 pkgdesc="TODO"
-pkgver="7.44.0"
+pkgver="7.45.0"
 
 sources=(
     "https://github.com/bagder/curl/releases/download/curl-${pkgver//./_}/curl-${pkgver}.tar.bz2"
 )
 sums=(
-    "1e2541bae6582bb697c0fbae49e1d3e6fad5d05d5aa80dbd6f072e0a44341814"
+    "65154e66b9f8a442b57c436904639507b4ac37ec13d6f8a48248f1b4012b98ea"
 )
 
 library=true
