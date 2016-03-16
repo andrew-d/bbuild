@@ -1,12 +1,12 @@
 pkgname="sqlite"
 pkgdesc="TODO"
-pkgver="3081101"
+pkgver="3110100"
 
 sources=(
-    "https://www.sqlite.org/2015/sqlite-autoconf-${pkgver}.tar.gz"
+    "https://www.sqlite.org/2016/sqlite-autoconf-${pkgver}.tar.gz"
 )
 sums=(
-    "fb99b0ac038c4a7e48b44b61836cb41d4eeba36b4d0ee757beeab59031a1d3b6"
+    "533ff1d0271c2e666f01591271cef01a31648563affa0c95e80ef735077d4377"
 )
 
 library=true
