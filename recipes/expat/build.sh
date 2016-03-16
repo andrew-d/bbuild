@@ -1,12 +1,12 @@
 pkgname="expat"
 pkgdesc="TODO"
-pkgver="2.1.0"
+pkgver="2.1.1"
 
 sources=(
-    "http://downloads.sourceforge.net/project/expat/expat/${pkgver}/expat-${pkgver}.tar.gz"
+    "http://downloads.sourceforge.net/project/expat/expat/${pkgver}/expat-${pkgver}.tar.bz2"
 )
 sums=(
-    "823705472f816df21c8f6aa026dd162b280806838bb55b3432b0fb1fcca7eb86"
+    "aff584e5a2f759dcfc6d48671e9529f6afe1e30b0cd6a4cec200cbe3f793de67"
 )
 
 library=true
