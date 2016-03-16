@@ -2,7 +2,7 @@
 
 ## What Is This?
 
-This repository contains `bbuild` a pseudo-package manager that is designed to
+This repository contains `bbuild`, a pseudo-package manager that is designed to
 help with building statically-linked binaries of various tools.  It's an
 extension of the work that I started over in my [static-binaries][sb]
 repository, except as a proper tool rather than a bunch of shell scripts.
