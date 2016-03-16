@@ -1,12 +1,12 @@
 pkgname="libnl-tiny"
 pkgdesc="TODO"
-pkgver="91420e5fbbe932f93d55f0581bf43256a3dae8dc"
+pkgver="edf21ef7aa9423b95aa49e2018eacfbcf1f3eac9"
 
 sources=(
     "libnl-tiny-${pkgver}.tar.gz::https://github.com/sabotage-linux/libnl-tiny/archive/${pkgver}.tar.gz"
 )
 sums=(
-    "1a4b12d2862255062535ff97379f183860336d0600393bc83d85a409f051d759"
+    "97bb212ef0995a507bdd1a8605c5716d44a5e080e19b5ed5bbbb1b303442c468"
 )
 
 library=true
@@ -18,16 +18,6 @@ dependencies=()
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
 
 
-function prepare() {
-    cd "$_builddir"
-
-    sed -i \
-        -e "s/ar rc/${AR} rc/g" \
-        -e "s/ranlib /${RANLIB} /g" \
-        Makefile || return 1
-}
-
-
 function build() {
     cd "$_builddir"
 
@@ -36,6 +26,7 @@ function build() {
         ALL_LIBS=libnl-tiny.a \
         CC="${CC}" \
         AR="${AR}" \
+        RANLIB="${RANLIB}" \
         CFLAGS="${BBUILD_STATIC_FLAGS}" \
         all \
         || return 1
