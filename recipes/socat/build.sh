@@ -1,12 +1,12 @@
 pkgname="socat"
 pkgdesc="TODO"
-pkgver="1.7.3.0"
+pkgver="1.7.3.1"
 
 sources=(
     "http://www.dest-unreach.org/socat/download/socat-${pkgver}.tar.gz"
 )
 sums=(
-    "f8de4a2aaadb406a2e475d18cf3b9f29e322d4e5803d8106716a01fd4e64b186"
+    "a8cb07b12bcd04c98f4ffc1c68b79547f5dd4e23ddccb132940f6d55565c7f79"
 )
 
 library=false
