@@ -1,13 +1,13 @@
 pkgname="strace"
 pkgdesc="TODO"
-pkgver="4.10"
+pkgver="4.11"
 
 sources=(
     "http://downloads.sourceforge.net/project/strace/strace/${pkgver}/strace-${pkgver}.tar.xz"
     "fix-includes.patch"
 )
 sums=(
-    "e6180d866ef9e76586b96e2ece2bfeeb3aa23f5cc88153f76e9caedd65e40ee2"
+    "e86a5f6cd8f941f67f3e4b28f4e60f3d9185c951cf266404533210a2e5cd8152"
     "35bd06f770bac65ba1fa801b10aed911dcc45a6c8083d1893de3d7351f9e36a1"
 )
 
