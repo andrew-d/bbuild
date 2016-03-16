@@ -3,7 +3,7 @@ pkgdesc="TODO"
 pkgver="2.0.22-stable"
 
 sources=(
-    "https://downloads.sourceforge.net/project/levent/libevent/libevent-${pkgver%.*}/libevent-${pkgver}.tar.gz"
+    "https://github.com/libevent/libevent/releases/download/release-${pkgver}/libevent-${pkgver}.tar.gz"
 )
 sums=(
     "71c2c49f0adadacfdbe6332a372c38cf9c8b7895bb73dabeaa53cdcc1d4e1fa3"
