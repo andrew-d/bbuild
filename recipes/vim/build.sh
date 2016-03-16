@@ -1,12 +1,12 @@
 pkgname="vim"
 pkgdesc="TODO"
-pkgver="7.4.873"
+pkgver="7.4.1579"
 
 sources=(
     "vim-${pkgver}.tar.gz::https://github.com/vim/vim/archive/v${pkgver}.tar.gz"
 )
 sums=(
-    "06f2f8ad1ad888532fe84db9ef89d416fd5576dcf8a138505863857996f871d8"
+    "ff346656a0484da0da1603d60c52b46d94e2bb1441799cb936f1725880df3913"
 )
 
 library=false
