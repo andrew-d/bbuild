@@ -1,12 +1,12 @@
 pkgname="openssl"
 pkgdesc="TODO"
-pkgver="1.0.2d"
+pkgver="1.0.2g"
 
 sources=(
     "https://openssl.org/source/openssl-${pkgver}.tar.gz"
 )
 sums=(
-    "671c36487785628a703374c652ad2cebea45fa920ae5681515df25d9f2c9a8c8"
+    "b784b1b3907ce39abf4098702dade6365522a253ad1552e267a9a0e89594aa33"
 )
 
 library=true
