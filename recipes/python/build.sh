@@ -1,12 +1,12 @@
 pkgname="python"
 pkgdesc="TODO"
-pkgver="2.7.10"
+pkgver="2.7.11"
 
 sources=(
     "https://www.python.org/ftp/python/${pkgver}/Python-${pkgver}.tar.xz"
 )
 sums=(
-    "1cd3730781b91caf0fa1c4d472dc29274186480161a150294c42ce9b5c5effc0"
+    "962b4c45af50124ea61f11a30deb4342fc0bc21126790fa1d7f6c79809413f46"
 )
 
 library=true
