@@ -12,7 +12,7 @@ sums=(
 library=true
 binary=true
 
-dependencies=("openssl" "zlib" "libssh2" "libidn")
+dependencies=("openssl" "zlib" "libssh2" "libidn" "libnghttp2")
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
@@ -27,6 +27,12 @@ function build() {
     openssl_dir="$(cat "$BBUILD_DEPCONF_DIR"/openssl/.source-dir)"
     openssl_dir="$openssl_dir"/"openssl-${openssl_version}"
 
+    local nghttp2_version nghttp2_dir
+
+    nghttp2_version="$(cat "$BBUILD_DEPCONF_DIR"/libnghttp2/.version)"
+    nghttp2_dir="$(cat "$BBUILD_DEPCONF_DIR"/libnghttp2/.source-dir)"
+    nghttp2_dir="$nghttp2_dir"/"nghttp2-${nghttp2_version}"/lib
+
     ./configure \
         --host=${BBUILD_CROSS_PREFIX} \
         --build=i686 \
@@ -35,6 +41,8 @@ function build() {
         --disable-dependency-tracking \
         --enable-optimize \
         --with-ssl="${openssl_dir}" \
+        --with-nghttp2="${nghttp2_dir}" \
+        PKG_CONFIG=/bin/true \
         || return 1
 
     make || return 1
