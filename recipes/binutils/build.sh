@@ -1,12 +1,12 @@
 pkgname="binutils"
 pkgdesc="TODO"
-pkgver="2.25"
+pkgver="2.26"
 
 sources=(
     "https://ftp.gnu.org/gnu/binutils/binutils-${pkgver}.tar.gz"
 )
 sums=(
-    "cccf377168b41a52a76f46df18feb8f7285654b3c1bd69fc8265cb0fc6902f2d"
+    "9615feddaeedc214d1a1ecd77b6697449c952eab69d79ab2125ea050e944bcc1"
 )
 
 library=false
