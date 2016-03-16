@@ -1,12 +1,12 @@
 pkgname="git"
 pkgdesc="TODO"
-pkgver="2.6.0"
+pkgver="2.7.3"
 
 sources=(
     "git-${pkgver}.tar.gz::https://github.com/git/git/archive/v${pkgver}.tar.gz"
 )
 sums=(
-    "807ebf4ea8a96a9a7e48be5101fb23e31135c1a084b041a25f9a5a76297d8140"
+    "383fff35270b3f8686987ce7f0152969d0cb73599a66cefe6a8f8ef8edf88673"
 )
 
 library=false
