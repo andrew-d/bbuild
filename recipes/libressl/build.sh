@@ -1,12 +1,12 @@
 pkgname="libressl"
 pkgdesc="TODO"
-pkgver="a7f031ba55ac4a69263000357eb7f6d7fb88101a"
+pkgver="14aa5f73abc718f28097fc3e3ae5be9c7422b39c"
 
 sources=(
     "libressl-${pkgver}.tar.gz::https://github.com/libressl-portable/portable/archive/${pkgver}.tar.gz"
 )
 sums=(
-    "a02fb005652f1e12ba88a7855bd850c129d44a62ff5f735b6d30c351acd3b345"
+    "31c3144aa64a7e32ea22adf5653932efdc336908b9378c007725196f20e3f09f"
 )
 
 library=true
