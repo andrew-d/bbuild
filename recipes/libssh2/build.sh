@@ -1,12 +1,12 @@
 pkgname="libssh2"
 pkgdesc="TODO"
-pkgver="1.6.0"
+pkgver="1.7.0"
 
 sources=(
-    "https://github.com/libssh2/libssh2/releases/download/libssh2-${pkgver}/libssh2-${pkgver}.tar.gz"
+    "https://www.libssh2.org/download/libssh2-${pkgver}.tar.gz"
 )
 sums=(
-    "5a202943a34a1d82a1c31f74094f2453c207bf9936093867f41414968c8e8215"
+    "e4561fd43a50539a8c2ceb37841691baf03ecb7daf043766da1b112e4280d584"
 )
 
 library=true
