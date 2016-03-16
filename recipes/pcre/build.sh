@@ -1,12 +1,12 @@
 pkgname="pcre"
 pkgdesc="TODO"
-pkgver="8.37"
+pkgver="8.38"
 
 sources=(
     "http://downloads.sourceforge.net/project/pcre/pcre/${pkgver}/pcre-${pkgver}.tar.bz2"
 )
 sums=(
-    "51679ea8006ce31379fb0860e46dd86665d864b5020fc9cd19e71260eef4789d"
+    "b9e02d36e23024d6c02a2e5b25204b3a4fa6ade43e0a5f869f254f49535079df"
 )
 
 library=true
