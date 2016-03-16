@@ -1,12 +1,12 @@
 pkgname="dropbear"
 pkgdesc="TODO"
-pkgver="2015.68"
+pkgver="2016.72"
 
 sources=(
     "https://matt.ucc.asn.au/dropbear/releases/dropbear-${pkgver}.tar.bz2"
 )
 sums=(
-    "55ea7c1e904ffe4b1cdbe1addca8291a2533d7d285fd22ac33608e9502a62446"
+    "9323766d3257699fd7d6e7b282c5a65790864ab32fd09ac73ea3d46c9ca2d681"
 )
 
 library=false
