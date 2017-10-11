@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 
-
 set -e              # Abort when a command exists with a non-zero exit status
 set -o pipefail     # Cause a pipeline to return the exit status of the last
                     # command that returned a non-zero return value.
 set -u              # Attempting to use an undefined variable will print an
                     # error and exit the program.
-
 
 ######################################################################
 # Variable Names
@@ -50,32 +48,32 @@ set -u              # Attempting to use an undefined variable will print an
 #
 ######################################################################
 
-
 # Global script information.
-bb_program=${0##*/}
-bb_program_path=$(readlink -e "$0")
-bb_program_version=0.0.1
-declare -i bb_verbosity=2
-declare -a bb_build_order
-bb_have_build_env=
+bb_program=${0##*/};
+bb_program_path=$(readlink -e "$0");
+bb_program_version=0.0.2;
+declare -i bb_verbosity=2;
+declare -a bb_build_order;
+bb_have_build_env='';
 
 # Default variables.
-BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]')
-BBUILD_HOST_ARCH=$(uname -m | tr '[:upper:]' '[:lower:]')
-BBUILD_TARGET_PLATFORM=linux
-BBUILD_TARGET_ARCH=x86_64
+BBUILD_HOST_PLATFORM=$(uname | tr '[:upper:]' '[:lower:]');
+BBUILD_HOST_ARCH=$(uname -m | tr '[:upper:]' '[:lower:]');
+BBUILD_TARGET_PLATFORM=linux;
+BBUILD_TARGET_ARCH=x86_64;
 
-
-# Color definitions (start as 'on').
-NORMAL="\033[1;0m"
-##STRONG="\033[1;1m"
-RED="\033[1;31m"
-GREEN="\033[1;32m"
-YELLOW="\033[1;33m"
-BLUE="\033[1;34m"
-MAGENTA="\033[1;35m"
-WHITE="\033[1;37m"
-
+# Very bright and bold color definitions (start as 'on').
+# NOTE Each color starts with '0;' thus resetting any previously set style.
+#      Future addition of text attributes such as underlined, slanted or
+#      striked will require the leading '0;' to go.
+NORMAL="\033[0m";
+##STRONG="\033[0;1m";
+RED="\033[0;1;38;5;196m";
+GREEN="\033[0;1;38;5;46m";
+YELLOW="\033[0;1;38;5;226m";
+BLUE="\033[0;1;38;5;26m";
+MAGENTA="\033[0;1;38;5;165m";
+WHITE="\033[0;1m";
 
 ######################################################################
 # Enable / disable colors in the program.
@@ -92,28 +90,27 @@ WHITE="\033[1;37m"
 function set_colors() {
   case "$1" in
     on)
-      NORMAL="\033[1;0m"
-      ##STRONG="\033[1;1m"
-      RED="\033[1;31m"
-      GREEN="\033[1;32m"
-      YELLOW="\033[1;33m"
-      BLUE="\033[1;34m"
-      MAGENTA="\033[1;35m"
-      WHITE="\033[1;37m"
+      NORMAL="\033[0m";
+      ##STRONG="\033[0;1m";
+      RED="\033[0;1;38;5;196m";
+      GREEN="\033[0;1;38;5;46m";
+      YELLOW="\033[0;1;38;5;226m";
+      BLUE="\033[0;1;38;5;26m";
+      MAGENTA="\033[0;1;38;5;165m";
+      WHITE="\033[0;1m";
       ;;
     off)
-      NORMAL=""
-      ##STRONG=""
-      RED=""
-      GREEN=""
-      YELLOW=""
-      BLUE=""
-      MAGENTA=""
-      WHITE=""
+      NORMAL="";
+      ##STRONG="";
+      RED="";
+      GREEN="";
+      YELLOW="";
+      BLUE="";
+      MAGENTA="";
+      WHITE="";
       ;;
   esac
 }
-
 
 ######################################################################
 # Various helper log functions.
@@ -134,39 +131,38 @@ function set_colors() {
 #   None
 ######################################################################
 function debug() {
-  [[ "$bb_verbosity" -gt 1 ]] && return
-  local prompt="${MAGENTA}==> DEBUG:${NORMAL}"
-  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+  [[ "$bb_verbosity" -gt 1 ]] && return;
+  local prompt="${MAGENTA}==> DEBUG:${NORMAL}";
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2;
 }
 
 function info() {
-  [[ "$bb_verbosity" -gt 2 ]] && return
-  local prompt="${GREEN}==>${NORMAL}"
-  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+  [[ "$bb_verbosity" -gt 2 ]] && return;
+  local prompt="${GREEN}==>${NORMAL}";
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2;
 }
 
 function info2() {
-  [[ "$bb_verbosity" -gt 2 ]] && return
+  [[ "$bb_verbosity" -gt 2 ]] && return;
   local prompt="${BLUE}  ->${NORMAL}"
-  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2;
 }
 
 function warn() {
-  [[ "$bb_verbosity" -gt 3 ]] && return
-  local prompt="${YELLOW}==> WARNING:${NORMAL}"
-  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+  [[ "$bb_verbosity" -gt 3 ]] && return;
+  local prompt="${YELLOW}==> WARNING:${NORMAL}";
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2;
 }
 
 function error() {
-  local prompt="${RED}==> ERROR:${NORMAL}"
-  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2
+  local prompt="${RED}==> ERROR:${NORMAL}";
+  printf "${prompt} ${WHITE}%s${NORMAL}\n" "$1" >&2;
 }
 
 function die() {
-  error "$1"
-  exit 1
+  error "$1";
+  exit 1;
 }
-
 
 ######################################################################
 # Fetches a given URL and saves it as the given file.
@@ -182,19 +178,16 @@ function die() {
 #   0 on success, 1 on failure
 ######################################################################
 function fetch_url() {
-  local url="$1"
-  local target="$2"
-
-  local quiet_args
+  local url target quiet_args;
+  url="$1"; target="$2";
   if [[ "$bb_verbosity" -gt 2 ]]; then
-    quiet_args=-s
+    quiet_args=-s;
   fi
 
   # TODO: fall back to wget if curl not present
-  curl -L ${quiet_args:-} -o "$target" "$url" || exit 1
-  return 0
+  curl -4 -Lk -# ${quiet_args:-} -o "$target" "$url" || die "curl is not installed or not in your PATH";
+  return 0;
 }
-
 
 ######################################################################
 # Detects whether a given source is remote (i.e. whether the source
@@ -1230,6 +1223,5 @@ function main() {
 # Call main function
 main "$@"
 exit $?
-
 
 # vim: set tabstop=2 shiftwidth=2 textwidth=0 expandtab:
