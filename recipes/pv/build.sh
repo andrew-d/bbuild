@@ -1,12 +1,12 @@
 pkgname="pv"
 pkgdesc="TODO"
-pkgver="1.6.0"
+pkgver="1.6.6"
 
 sources=(
     "https://www.ivarch.com/programs/sources/pv-${pkgver}.tar.bz2"
 )
 sums=(
-    "0ece824e0da27b384d11d1de371f20cafac465e038041adab57fcf4b5036ef8d"
+    "608ef935f7a377e1439c181c4fc188d247da10d51a19ef79bcdee5043b0973f1"
 )
 
 library=false
@@ -16,7 +16,6 @@ dependencies=()
 
 # Common variables.
 _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
-
 
 function build() {
     cd "$_builddir"

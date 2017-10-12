@@ -1,16 +1,14 @@
 pkgname="tar"
 pkgdesc="TODO"
-pkgver="1.28"
+##pkgdesc="GNU Tar is an archiver program.\n\nIt is used to create and manipulate files that are actually collections of many other files; the program provides users with an organized and systematic method of controlling a large amount of data.\n\nDespite its name, that is an acronym of 'tape archiver', GNU Tar is able to direct its output to any available devices, files or other programs, it may as well access remote devices or files.\n\nThe main areas of usage for GNU Tar are: storage, backup and transportation."
+pkgver="1.29"
 
 sources=(
     "https://ftp.gnu.org/gnu/tar/tar-${pkgver}.tar.xz"
-    "tar-0001-fix-build-failure.patch"
-    "darwin-gnutar-configure-xattrs.patch"
 )
+
 sums=(
-    "64ee8d88ec1b47a0961033493f919d27218c41b580138fd6802327462aff22f2"
-    "48594df98ceadb628dfce93641cee41a27f35448da33afe75a62be3e5f8c4600"
-    "f2e56bb8afd1c641a7e5b81e35fdbf36b6fb66434b1e35caa8b55196b30c3ad9"
+    "402dcfd0022fd7a1f2c5611f5c61af1cd84910a760a44a688e18ddbff4e9f024"
 )
 
 library=false
@@ -25,22 +23,23 @@ _builddir="$BBUILD_SOURCE_DIR/$pkgname-$pkgver"
 function prepare() {
     cd "$_builddir"
 
+    # Kept here for ease of use on future recipe updates
     # Apply all patches in our sources
-    for i in "${sources[@]}"; do
-        case $i in
-            darwin-*.patch)
-                if [[ "$BBUILD_TARGET_PLATFORM" = "darwin" ]]; then
-                    info2 $i
-                    patch -p1 -i "$BBUILD_SOURCE_DIR"/$i || return 1
-                fi
-                ;;
-
-            *.patch)
-                info2 $i
-                patch -p1 -i "$BBUILD_SOURCE_DIR"/$i || return 1
-                ;;
-        esac
-    done
+    #for i in "${sources[@]}"; do
+    #    case $i in
+    #        darwin-*.patch)
+    #            if [[ "$BBUILD_TARGET_PLATFORM" = "darwin" ]]; then
+    #                info2 $i
+    #                patch -p1 -i "$BBUILD_SOURCE_DIR"/$i || return 1
+    #            fi
+    #            ;;
+    #
+    #        *.patch)
+    #            info2 $i
+    #            patch -p1 -i "$BBUILD_SOURCE_DIR"/$i || return 1
+    #            ;;
+    #    esac
+    #done
 }
 
 
